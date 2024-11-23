@@ -14,7 +14,7 @@ import osqp
 # from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 # from itertools import combinations, product, permutations
 
-import util.animate as visuals
+# import util.animate as visuals
 from controllers.state_constants import States
 
 class Ellipse:
@@ -341,16 +341,16 @@ class InputHandlerImproved:
         """
         return self.all_c_diff != []
 
-    def visualize_physical_input(self, u):
-        """
-        Visualize the inputs that can be calculated with get_physical_input().
-        Shows both the physical inputs as well as the resulting force.
+    # def visualize_physical_input(self, u):
+    #     """
+    #     Visualize the inputs that can be calculated with get_physical_input().
+    #     Shows both the physical inputs as well as the resulting force.
 
-        :param u: generalized input
-        :type u: np.array 8x1
-        """
-        visualizer = visuals.ForceVisualizer(self.model)
-        visualizer.plot(u)
+    #     :param u: generalized input
+    #     :type u: np.array 8x1
+    #     """
+    #     visualizer = visuals.ForceVisualizer(self.model)
+    #     visualizer.plot(u)
 
     def get_fault_category(self):
         """

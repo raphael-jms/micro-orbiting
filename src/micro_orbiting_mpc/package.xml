@@ -10,7 +10,9 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>px4_msgs</depend>
-  <depend>px4_offboard</depend>
+  <!-- <depend>px4_offboard</depend> -->
+  <depend>python3-transforms3d</depend>
+
   <depend>micro_orbiting_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>

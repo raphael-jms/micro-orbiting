@@ -2,6 +2,7 @@ build/*
 log/*
 install/*
 __pycache__/
+test/*
 poetry.lock
 
 # Environments
