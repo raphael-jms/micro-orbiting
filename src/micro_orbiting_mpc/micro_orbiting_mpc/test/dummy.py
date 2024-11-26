@@ -1,8 +1,8 @@
 import numpy as np
 
-from controllers.controller_base_class import ControllerBaseClass
-from models.ff_dynamics import FreeFlyerDynamicsFull
-from models.ff_input_bounds import InputBounds, InputHandlerImproved
+from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
+from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved
 
 class DummyModel:
     def __init__(self):
@@ -26,5 +26,6 @@ class DummyController(ControllerBaseClass):
         control_y = -self.k * x0[1]
         control_alpha = -self.k * x0[2]
 
-        u = np.array([control_x, control_y, control_alpha])
+        u = np.array([control_x, control_y, control_alpha]).flatten()
+        print(u)
         return self.input_handler.get_physical_input(u)

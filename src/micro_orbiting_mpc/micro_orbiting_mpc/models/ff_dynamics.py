@@ -2,8 +2,8 @@ import numpy as np
 import casadi as ca
 import math
 import matplotlib.pyplot as plt
-# import models.ff_input_bounds as ff_bounds
-from models.ff_input_bounds import PlottingHelper, SpiralParameters
+# import micro_orbiting_mpc.models.ff_input_bounds as ff_bounds
+from micro_orbiting_mpc.models.ff_input_bounds import PlottingHelper, SpiralParameters
 import copy
 
 

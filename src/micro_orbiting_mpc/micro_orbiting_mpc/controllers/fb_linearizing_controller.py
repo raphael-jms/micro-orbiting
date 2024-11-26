@@ -6,11 +6,11 @@ import warnings
 
 import cvxpy as cp
 
-from controllers.controller import ControllerBaseClass
-from util.utils import Rot3, Rot3Inv, read_yaml_matrix, LogData
-from util.polytope import MyPolytope
+from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
+from micro_orbiting_mpc.util.utils import Rot3, Rot3Inv, read_yaml_matrix, LogData
+from micro_orbiting_mpc.util.polytope import MyPolytope
 
-from controllers.Tuning_Helpers.terminal_incredients_v3 import TerminalIncredients
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
 
 class FBLinearizingController(ControllerBaseClass):
     def __init__(self, model):

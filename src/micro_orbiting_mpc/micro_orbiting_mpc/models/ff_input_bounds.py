@@ -15,7 +15,7 @@ import osqp
 # from itertools import combinations, product, permutations
 
 # import util.animate as visuals
-from controllers.state_constants import States
+from micro_orbiting_mpc.controllers.state_constants import States
 
 class Ellipse:
     def __init__(self, B, d) -> None:

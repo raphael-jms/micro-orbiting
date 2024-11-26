@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 
-from controllers.controller_base_class import ControllerBaseClass
-from controllers.fb_linearizing_controller import FBLinearizingController
-from util.terminal_constraints import PolytopicTerminalConstraint
-from util.utils import LogData, read_yaml_matrix, EllipticalTerminalConstraint, Rot, RotInv, Rot3, Rot3Inv
+from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
+from micro_orbiting_mpc.controllers.fb_linearizing_controller import FBLinearizingController
+from micro_orbiting_mpc.util.terminal_constraints import PolytopicTerminalConstraint
+from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalTerminalConstraint, Rot, RotInv, Rot3, Rot3Inv
 
 class GenericMPC(ControllerBaseClass):
     # Default parameters for the MPC controller and its child classes

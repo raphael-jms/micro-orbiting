@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import time
 import random
 
-from models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
-from controllers.controller_mpc_base import GenericMPC
-from util.utils import LogData, read_yaml_matrix, Rot3Inv
-from util.cost_handler import CostHandler
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
+from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
+from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, Rot3Inv
+from micro_orbiting_mpc.util.cost_handler import CostHandler
 
 class FancyMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()

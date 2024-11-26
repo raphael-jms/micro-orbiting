@@ -41,7 +41,7 @@ import numpy as np
 from rclpy.node import Node
 from rclpy.clock import Clock
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
-from transforms3d import quat2euler
+from transforms3d.euler import quat2euler
 
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -61,11 +61,11 @@ from px4_msgs.msg import VehicleThrustSetpoint
 
 from micro_orbiting_msgs.srv import SetPose
 
-from models.ff_dynamics import FreeFlyerDynamicsFull
-from controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
-from controllers.spiralMPC_eMPC.controller_empc import FancyMPC
+from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
+from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
 
-from test.dummy import DummyModel, DummyController
+from micro_orbiting_mpc.test.dummy import DummyModel, DummyController
 
 def vector2PoseMsg(frame_id, position, attitude):
     pose_msg = PoseStamped()
@@ -94,7 +94,7 @@ class SpacecraftMPCNode(Node):
         )
 
         # get parameters
-        self.mode = self.declare_parameter('mode', 'nominal').value
+        self.mode = self.declare_parameter('mode', 'dummy').value
 
         # create subscribers
         self.status_sub = self.create_subscription(
@@ -239,7 +239,7 @@ class SpacecraftMPCNode(Node):
         self.setpoint_position = np.zeros_like(self.vehicle_local_position)
         error_position = self.vehicle_local_position - self.setpoint_position
 
-        euler_attitude = quat2euler(*self.vehicle_attitude)
+        euler_attitude = quat2euler([*self.vehicle_attitude])
         x0 = np.array([error_position[0],
                         error_position[1],
                         self.vehicle_local_velocity[0],

@@ -7,18 +7,18 @@
   <maintainer email="stockner@kth.se">raphael</maintainer>
   <license>Apache-2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_python</buildtool_depend>
 
-  <depend>px4_msgs</depend>
   <!-- <depend>px4_offboard</depend> -->
-  <depend>python3-transforms3d</depend>
-
   <depend>micro_orbiting_msgs</depend>
+  <exec_depend>python3-transforms3d</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>px4_msgs</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

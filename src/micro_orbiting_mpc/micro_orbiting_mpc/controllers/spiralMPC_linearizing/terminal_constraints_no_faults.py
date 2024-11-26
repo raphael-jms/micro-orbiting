@@ -3,8 +3,8 @@ import scipy.linalg as la
 import cvxpy as cp
 import casadi as ca
 
-from models.ff_input_bounds import InputBounds
-from util.utils import read_yaml_matrix, read_yaml, EllipticalTerminalConstraint
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds
+from micro_orbiting_mpc.util.utils import read_yaml_matrix, read_yaml, EllipticalTerminalConstraint
 
 def get_terminal_constraints(model):
     """

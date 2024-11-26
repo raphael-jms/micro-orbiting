@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 import itertools
 import subprocess
 
-from util.utils import read_yaml_matrix, read_yaml
-from util.polytope import MyPolytope
-from models.ff_input_bounds import SpiralParameters, InputBounds
+from micro_orbiting_mpc.util.utils import read_yaml_matrix, read_yaml
+from micro_orbiting_mpc.util.polytope import MyPolytope
+from micro_orbiting_mpc.models.ff_input_bounds import SpiralParameters, InputBounds
 
 from pympc.geometry.polyhedron import Polyhedron
 from pympc.dynamics.discrete_time_systems import LinearSystem

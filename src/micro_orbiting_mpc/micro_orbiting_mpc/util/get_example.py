@@ -1,5 +1,5 @@
-from models.ff_dynamics import FreeFlyerDynamicsFull, SpiralDynamics
-from models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
+from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, SpiralDynamics
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
 
 def get_faulty_ff_full(dt=0.1):
     model = FreeFlyerDynamicsFull(dt)

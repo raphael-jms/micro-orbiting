@@ -6,11 +6,11 @@ import math
 import cvxpy as cp
 import casadi as ca
 
-from controllers.spiralMPC_linearizing.parse_sympy import python_code_from_sympy
-from util.utils import read_yaml_matrix, EllipticalTerminalConstraint
-from util.get_example import get_faulty_ff_spiral
-from controllers.cost_function import get_cost_function
-from models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.parse_sympy import python_code_from_sympy
+from micro_orbiting_mpc.util.utils import read_yaml_matrix, EllipticalTerminalConstraint
+from micro_orbiting_mpc.util.get_example import get_faulty_ff_spiral
+from micro_orbiting_mpc.controllers.cost_function import get_cost_function
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
 
 class TerminalIncredients:
     def __init__(self, model, tuning_file="./controllers/tuning.yaml", failure_case="spiraling_5", 

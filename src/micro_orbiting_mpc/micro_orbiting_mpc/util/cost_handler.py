@@ -4,8 +4,8 @@ import json
 import numpy as np
 import casadi as ca
 
-from util.polytope import MyPolytope
-from util.yes_no_question import query_yes_no
+from micro_orbiting_mpc.util.polytope import MyPolytope
+from micro_orbiting_mpc.util.yes_no_question import query_yes_no
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):

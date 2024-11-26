@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 
-from models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
-from micro_orbiting_mpc.src.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
-from controllers.controller_base_class import ControllerBaseClass
-from controllers.controller_mpc_base import GenericMPC
-from util.terminal_constraints import PolytopicTerminalConstraint
-from util.utils import LogData, read_yaml_matrix, EllipticalTerminalConstraint, Rot, RotInv, Rot3, Rot3Inv
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
+from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
+from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
+from micro_orbiting_mpc.util.terminal_constraints import PolytopicTerminalConstraint
+from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalTerminalConstraint, Rot, RotInv, Rot3, Rot3Inv
 
 
 class SpiralMPC(GenericMPC):

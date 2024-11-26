@@ -3,7 +3,7 @@ import yaml
 import copy
 import warnings
 
-from models.ff_input_bounds import InputBounds, InputHandlerImproved
+from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved
 
 class ControllerBaseClass:
     def __init__(self):
