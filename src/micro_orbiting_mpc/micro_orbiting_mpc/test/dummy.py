@@ -7,6 +7,7 @@ from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerI
 class DummyModel:
     def __init__(self):
         self.name = 'DummyModel'
+        self.max_force = 1.75
 
 class DummyController(ControllerBaseClass):
     """
@@ -22,10 +23,16 @@ class DummyController(ControllerBaseClass):
         self.k = 1
 
     def get_control(self, x0, t):
-        control_x = -self.k * x0[0]
-        control_y = -self.k * x0[1]
+        control_x = -self.k * (x0[0] - 3)
+        control_y = -self.k * (x0[1])
         control_alpha = -self.k * x0[2]
 
         u = np.array([control_x, control_y, control_alpha]).flatten()
-        print(u)
-        return self.input_handler.get_physical_input(u)
+        return self.input_handler.get_physical_input(u) 
+
+        # u = np.zeros(8)
+
+        # u[4] = 1
+        # u[7] = 1
+
+        # return u

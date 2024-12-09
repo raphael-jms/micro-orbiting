@@ -79,6 +79,19 @@ def vector2PoseMsg(frame_id, position, attitude):
     pose_msg.pose.orientation.w = attitude[3]
     return pose_msg
 
+class GiveUpdate:
+    """
+    Gives Update every rate seconds
+    """
+    def __init__(self, dt, rate=1):
+        self.no_calls = int(rate/dt)
+        self.counter = 0
+    
+    def update(self, msg):
+        if self.counter % self.no_calls == 0:
+            self.counter = 0
+            print(msg)
+
 class SpacecraftMPCNode(Node):
     """
     ROS2 node for controlling the spacecraft using MPC
@@ -132,7 +145,6 @@ class SpacecraftMPCNode(Node):
         self.reference_pub = self.create_publisher(Marker, "/px4_mpc/reference", 10)
 
         timer_period = 0.1  # seconds
-        # timer_period = 0.02  # seconds
         self.timer = self.create_timer(timer_period, self.cmdloop_callback)
 
         self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
@@ -154,6 +166,7 @@ class SpacecraftMPCNode(Node):
                 self.controller = FancyMPC(self.model)
             case 'dummy':
                 # Dummy controller for testing
+                self.model = DummyModel()
                 self.controller = DummyController()
             case _:
                 self.get_logger().error('Unknown mode: ' + self.mode)
@@ -163,6 +176,8 @@ class SpacecraftMPCNode(Node):
         self.vehicle_local_position = np.array([0.0, 0.0, 0.0])
         self.vehicle_angular_velocity = np.array([0.0, 0.0, 0.0])
         self.vehicle_local_velocity = np.array([0.0, 0.0, 0.0])
+
+        self.updater = GiveUpdate(timer_period, rate=3)
 
     def vehicle_attitude_callback(self, msg):
         self.vehicle_attitude[0] = msg.q[0]
@@ -200,28 +215,42 @@ class SpacecraftMPCNode(Node):
         # NOTE:
         # Output is float[16]
         
-        thrust = u_pred.flatten() / self.model.max_force  # normalizes w.r.t. max thrust
+        thrust_controller = u_pred.flatten() / self.model.max_force  # normalizes w.r.t. max thrust
         """
-        thruster order in message: first positive, then negative directions
-                                    [f11, f21, f31, f41, f12, f22, f32, f42]
-        thruster order in controller: one direction always together
-                                    [f11, f12, f21, f22, f31, f32, f41, f42]
+        thruster order in controller: [F11, F12, F21, F22, F31, F32, F41, F42]
+                               index:  0    1    2    3    4    5    6    7
 
-        Example:
-        >>> b = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-        >>> b.reshape(-1,2)
-        array([[1, 2],
-            [3, 4],
-            [5, 6],
-            [7, 8]])
-        >>> np.append(b.reshape(-1,2)[:,0], b.reshape(-1,2)[:,1])
-        array([1, 3, 5, 7, 2, 4, 6, 8])
+        Alignment of the thruster definitions between the controller and the simulation environment
+        where the numbers below are the indices of the simulation input signal
+                4     6
+                ▲     ▲
+                │F21  │F11
+             ┌──┴─────┴──┐
+        2 ◄──┤           ├──► 3
+          F31│     ▲     │F32
+             │     │x    │
+             │  ◄──┘     │
+          F41│    y      │F42
+        0 ◄──┤           ├──► 1
+             └──┬─────┬──┘
+                │F22  │F12
+                ▼     ▼
+                5     7
         """
-        thrust_command = np.zeros(12, dtype=np.float32)
-        thrust_temp = thrust.reshape(-1,2)
-        thrust_command[0:8] = np.append(thrust_temp[:,0], thrust_temp[:,1])
+        thrust_simulator = np.zeros(12, dtype=np.float32)
+        thrust_simulator[0] = thrust_controller[6]
+        thrust_simulator[1] = thrust_controller[7]
+        thrust_simulator[2] = thrust_controller[4]
+        thrust_simulator[3] = thrust_controller[5]
+        thrust_simulator[4] = thrust_controller[2]
+        thrust_simulator[5] = thrust_controller[3]
+        thrust_simulator[6] = thrust_controller[0]
+        thrust_simulator[7] = thrust_controller[1]
 
-        actuator_outputs_msg.control = thrust_command.flatten()
+        actuator_outputs_msg.control = thrust_simulator.flatten()
+
+        # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
+        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.vehicle_attitude} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.vehicle_angular_velocity}")
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
     def cmdloop_callback(self):
@@ -233,6 +262,7 @@ class SpacecraftMPCNode(Node):
         offboard_msg.acceleration = False
         offboard_msg.attitude = False
         offboard_msg.body_rate = False
+        offboard_msg.thrust_and_torque = False
         offboard_msg.direct_actuator = True
         self.publisher_offboard_mode.publish(offboard_msg)
 
@@ -252,8 +282,7 @@ class SpacecraftMPCNode(Node):
         u_pred = self.controller.get_control(x0, 0.0)
 
         if self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD:
-            self.publish_direct_actuator_setpoint(u_pred)
-
+            self.publish_control(u_pred)
 
 def main(args=None):
     rclpy.init(args=args)
