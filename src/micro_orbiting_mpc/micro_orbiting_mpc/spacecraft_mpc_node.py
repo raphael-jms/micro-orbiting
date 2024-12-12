@@ -56,10 +56,7 @@ from px4_msgs.msg import VehicleAttitude
 from px4_msgs.msg import VehicleAngularVelocity
 from px4_msgs.msg import VehicleAngularVelocity
 from px4_msgs.msg import VehicleLocalPosition
-from px4_msgs.msg import VehicleRatesSetpoint
 from px4_msgs.msg import ActuatorMotors
-from px4_msgs.msg import VehicleTorqueSetpoint
-from px4_msgs.msg import VehicleThrustSetpoint
 
 from micro_orbiting_msgs.srv import SetPose
 
@@ -83,10 +80,10 @@ def vector2PoseMsg(frame_id, position, attitude):
 
 class GiveUpdate:
     """
-    Gives Update every rate seconds
+    Prints an update to the console every rate seconds
     """
     def __init__(self, dt, rate=1):
-        self.no_calls = int(rate/dt)
+        self.no_calls = int(rate/dt) # number of calls until message is shown
         self.counter = 0
     
     def update(self, msg):
@@ -99,13 +96,12 @@ class SpacecraftMPCNode(Node):
     """
     ROS2 node for controlling the spacecraft using MPC
     """
-
     def __init__(self):
         super().__init__('spacecraft_mpc_node')
         qos_profile = QoSProfile(
-            reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
-            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL,
-            history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=QoSHistoryPolicy.KEEP_LAST,
             depth=1
         )
 
@@ -139,10 +135,7 @@ class SpacecraftMPCNode(Node):
 
         # create publishers
         self.publisher_offboard_mode = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
-        # self.publisher_rates_setpoint = self.create_publisher(VehicleRatesSetpoint, '/fmu/in/vehicle_rates_setpoint', qos_profile)
         self.publisher_direct_actuator = self.create_publisher(ActuatorMotors, '/fmu/in/actuator_motors', qos_profile)
-        # self.publisher_thrust_setpoint = self.create_publisher(VehicleThrustSetpoint, '/fmu/in/vehicle_thrust_setpoint', qos_profile)
-        # self.publisher_torque_setpoint = self.create_publisher(VehicleTorqueSetpoint, '/fmu/in/vehicle_torque_setpoint', qos_profile)
         self.predicted_path_pub = self.create_publisher(Path, '/px4_mpc/predicted_path', 10)
         self.reference_pub = self.create_publisher(Marker, "/px4_mpc/reference", 10)
         self.reference_pub = self.create_publisher(Marker, "/px4_mpc/reference", 10)
@@ -183,7 +176,6 @@ class SpacecraftMPCNode(Node):
 
         self.updater = GiveUpdate(timer_period, rate=1)
 
-
     def vehicle_local_position_callback(self, msg):
         """
         Callback for local position
@@ -196,6 +188,8 @@ class SpacecraftMPCNode(Node):
         self.vehicle_local_velocity[1] = msg.vx
         self.vehicle_local_velocity[2] = -msg.vz
 
+        self.orientation_z = -msg.heading
+
     def vehicle_attitude_callback(self, msg):
         """
         Callback for local orientation
@@ -203,9 +197,9 @@ class SpacecraftMPCNode(Node):
         """
         heading = quat2euler(msg.q, axes="szyx") # Both message and library with quaternion form (w, x, y, z)
                                                  # Transform: static (rotation around global axes) z->y->x
-        self.orientation_z = math.pi/2 - heading[0]
-        self.orientation_y = math.pi/2 - heading[2]
-        self.orientation_x = math.pi/2 - heading[1]
+        self.orientation_z = - heading[0]
+        self.orientation_y = heading[2]
+        self.orientation_x = heading[1]
 
     def vehicle_angular_velocity_callback(self, msg):
         """
@@ -250,23 +244,14 @@ class SpacecraftMPCNode(Node):
                 5     7
         """
         thrust_simulator = np.zeros(12, dtype=np.float32)
-        # thrust_simulator[0] = thrust_controller[6]
-        # thrust_simulator[1] = thrust_controller[7]
-        # thrust_simulator[2] = thrust_controller[4]
-        # thrust_simulator[3] = thrust_controller[5]
-        # thrust_simulator[4] = thrust_controller[2]
-        # thrust_simulator[5] = thrust_controller[3]
-        # thrust_simulator[6] = thrust_controller[0]
-        # thrust_simulator[7] = thrust_controller[1]
-
-        thrust_simulator[1] = thrust_controller[6]
-        thrust_simulator[0] = thrust_controller[7]
-        thrust_simulator[3] = thrust_controller[4]
-        thrust_simulator[2] = thrust_controller[5]
-        thrust_simulator[5] = thrust_controller[2]
-        thrust_simulator[4] = thrust_controller[3]
-        thrust_simulator[7] = thrust_controller[0]
-        thrust_simulator[6] = thrust_controller[1]
+        thrust_simulator[0] = thrust_controller[6]
+        thrust_simulator[1] = thrust_controller[7]
+        thrust_simulator[2] = thrust_controller[4]
+        thrust_simulator[3] = thrust_controller[5]
+        thrust_simulator[4] = thrust_controller[2]
+        thrust_simulator[5] = thrust_controller[3]
+        thrust_simulator[6] = thrust_controller[0]
+        thrust_simulator[7] = thrust_controller[1]
 
         actuator_outputs_msg.control = thrust_simulator.flatten()
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
@@ -294,9 +279,9 @@ class SpacecraftMPCNode(Node):
                         self.orientation_z,
                         self.angular_velocity_z]).reshape(-1, 1)
 
-        u_pred = self.controller.get_control(x0, 0.0)
+        u_pred, u_simple = self.controller.get_control(x0, 0.0)
         # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
-        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} \n \t Control {-(x0[0] - 3)}, {-(x0[1])}, {-x0[2]}, actual control: {u_pred}")
+        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} \n \t Control {u_simple}, actual control: {u_pred}")
 
         if self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD:
             self.publish_control(u_pred)
