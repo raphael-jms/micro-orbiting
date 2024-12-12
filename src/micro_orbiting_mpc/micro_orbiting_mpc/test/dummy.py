@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
@@ -23,8 +24,10 @@ class DummyController(ControllerBaseClass):
         self.k = 1
 
     def get_control(self, x0, t):
-        control_x = -self.k * (x0[0] - 3)
-        control_y = -self.k * (x0[1])
+        # control_x = -self.k * (x0[0])
+        # control_y = -self.k * (x0[1])
+        control_x = np.array([0])
+        control_y = np.array([0])
         control_alpha = -self.k * x0[2]
 
         u = np.array([control_x, control_y, control_alpha]).flatten()

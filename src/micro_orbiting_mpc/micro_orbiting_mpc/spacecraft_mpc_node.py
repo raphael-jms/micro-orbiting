@@ -42,6 +42,8 @@ from rclpy.node import Node
 from rclpy.clock import Clock
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from transforms3d.euler import quat2euler
+import math
+import time
 
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -88,6 +90,7 @@ class GiveUpdate:
         self.counter = 0
     
     def update(self, msg):
+        self.counter += 1
         if self.counter % self.no_calls == 0:
             self.counter = 0
             print(msg)
@@ -174,38 +177,47 @@ class SpacecraftMPCNode(Node):
 
         self.vehicle_attitude = np.array([1.0, 0.0, 0.0, 0.0])
         self.vehicle_local_position = np.array([0.0, 0.0, 0.0])
-        self.vehicle_angular_velocity = np.array([0.0, 0.0, 0.0])
+        self.orientation_x, self.orientation_y, self.orientation_z = 0.0, 0.0, 0.0
+        self.angular_velocity_x, self.angular_velocity_y, self.angular_velocity_z = 0.0, 0.0, 0.0
         self.vehicle_local_velocity = np.array([0.0, 0.0, 0.0])
 
-        self.updater = GiveUpdate(timer_period, rate=3)
+        self.updater = GiveUpdate(timer_period, rate=1)
 
-    def vehicle_attitude_callback(self, msg):
-        self.vehicle_attitude[0] = msg.q[0]
-        self.vehicle_attitude[1] = msg.q[1]
-        self.vehicle_attitude[2] = -msg.q[2]
-        self.vehicle_attitude[3] = -msg.q[3]
 
     def vehicle_local_position_callback(self, msg):
-        self.vehicle_local_position[0] = msg.x
-        self.vehicle_local_position[1] = -msg.y
+        """
+        Callback for local position
+        Transform directly from NED (North, East, Down) to standard x-y-z coordinate system
+        """
+        self.vehicle_local_position[0] = msg.y
+        self.vehicle_local_position[1] = msg.x
         self.vehicle_local_position[2] = -msg.z
-        self.vehicle_local_velocity[0] = msg.vx
-        self.vehicle_local_velocity[1] = -msg.vy
+        self.vehicle_local_velocity[0] = msg.vy
+        self.vehicle_local_velocity[1] = msg.vx
         self.vehicle_local_velocity[2] = -msg.vz
 
-    def vehicle_angular_velocity_callback(self, msg):
-        self.vehicle_angular_velocity[0] = msg.xyz[0]
-        self.vehicle_angular_velocity[1] = -msg.xyz[1]
-        self.vehicle_angular_velocity[2] = -msg.xyz[2]
+    def vehicle_attitude_callback(self, msg):
+        """
+        Callback for local orientation
+        Transform from quaternion to angle and then from NED (North, East, Down) to standard x-y-z coordinate system
+        """
+        heading = quat2euler(msg.q, axes="szyx") # Both message and library with quaternion form (w, x, y, z)
+                                                 # Transform: static (rotation around global axes) z->y->x
+        self.orientation_z = math.pi/2 - heading[0]
+        self.orientation_y = math.pi/2 - heading[2]
+        self.orientation_x = math.pi/2 - heading[1]
 
     def vehicle_angular_velocity_callback(self, msg):
-        self.vehicle_angular_velocity[0] = msg.xyz[0]
-        self.vehicle_angular_velocity[1] = -msg.xyz[1]
-        self.vehicle_angular_velocity[2] = -msg.xyz[2]
+        """
+        Callback for local angular velocity
+        Transform directly from NED (North, East, Down) to standard x-y-z coordinate system
+        """
+        self.angular_velocity_x = msg.xyz[1]
+        self.angular_velocity_y = msg.xyz[0]
+        self.angular_velocity_z = -msg.xyz[2]
 
     def vehicle_status_callback(self, msg):
-        # print("NAV_STATUS: ", msg.nav_state)
-        # print("  - offboard status: ", VehicleStatus.NAVIGATION_STATE_OFFBOARD)
+        # print(f"NAV_STATUS: {msg.nav_state} - offboard status: {VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
         self.nav_state = msg.nav_state
 
     def publish_control(self, u_pred):
@@ -238,19 +250,25 @@ class SpacecraftMPCNode(Node):
                 5     7
         """
         thrust_simulator = np.zeros(12, dtype=np.float32)
-        thrust_simulator[0] = thrust_controller[6]
-        thrust_simulator[1] = thrust_controller[7]
-        thrust_simulator[2] = thrust_controller[4]
-        thrust_simulator[3] = thrust_controller[5]
-        thrust_simulator[4] = thrust_controller[2]
-        thrust_simulator[5] = thrust_controller[3]
-        thrust_simulator[6] = thrust_controller[0]
-        thrust_simulator[7] = thrust_controller[1]
+        # thrust_simulator[0] = thrust_controller[6]
+        # thrust_simulator[1] = thrust_controller[7]
+        # thrust_simulator[2] = thrust_controller[4]
+        # thrust_simulator[3] = thrust_controller[5]
+        # thrust_simulator[4] = thrust_controller[2]
+        # thrust_simulator[5] = thrust_controller[3]
+        # thrust_simulator[6] = thrust_controller[0]
+        # thrust_simulator[7] = thrust_controller[1]
+
+        thrust_simulator[1] = thrust_controller[6]
+        thrust_simulator[0] = thrust_controller[7]
+        thrust_simulator[3] = thrust_controller[4]
+        thrust_simulator[2] = thrust_controller[5]
+        thrust_simulator[5] = thrust_controller[2]
+        thrust_simulator[4] = thrust_controller[3]
+        thrust_simulator[7] = thrust_controller[0]
+        thrust_simulator[6] = thrust_controller[1]
 
         actuator_outputs_msg.control = thrust_simulator.flatten()
-
-        # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
-        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.vehicle_attitude} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.vehicle_angular_velocity}")
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
     def cmdloop_callback(self):
@@ -269,17 +287,16 @@ class SpacecraftMPCNode(Node):
         self.setpoint_position = np.zeros_like(self.vehicle_local_position)
         error_position = self.vehicle_local_position - self.setpoint_position
 
-        euler_attitude = quat2euler([*self.vehicle_attitude])
         x0 = np.array([error_position[0],
                         error_position[1],
                         self.vehicle_local_velocity[0],
                         self.vehicle_local_velocity[1],
-                        euler_attitude[2],
-                        # self.vehicle_angular_velocity[0],
-                        # self.vehicle_angular_velocity[1],
-                        self.vehicle_angular_velocity[2]]).reshape(-1, 1)
+                        self.orientation_z,
+                        self.angular_velocity_z]).reshape(-1, 1)
 
         u_pred = self.controller.get_control(x0, 0.0)
+        # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
+        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} \n \t Control {-(x0[0] - 3)}, {-(x0[1])}, {-x0[2]}, actual control: {u_pred}")
 
         if self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD:
             self.publish_control(u_pred)
