@@ -23,12 +23,15 @@ class GenericMPC(ControllerBaseClass):
         "xub": None,
         "terminal_constraint": None,
         "param_set": "P1",
-        "tuning_file": './controllers/tuning.yaml',
+        "tuning": {},
         "solver_opts": None}
 
     def get_param(self, param):
         """ Get the parameter value if set, default to DEFAULT_PARAMS if not """
-        return self.mpc_params.get(param, self.DEFAULT_PARAMS[param])
+        try:
+            return self.mpc_params.get(param, self.DEFAULT_PARAMS[param])
+        except KeyError:
+            raise KeyError(f"Parameter '{param}' not found in mpc_params or DEFAULT_PARAMS")
 
     def __init__(self, model, params):
         super().__init__()
@@ -40,7 +43,7 @@ class GenericMPC(ControllerBaseClass):
         self.trajectory_tracking = self.get_param("trajectory_tracking")
         self.trajectory = None
 
-        self.tuning_file = self.get_param("tuning_file")
+        self.tuning= self.get_param("tuning")
         self.failure_case = self.get_param("failure_case")
         self.param_set = self.get_param("param_set")
 
@@ -61,14 +64,17 @@ class GenericMPC(ControllerBaseClass):
             self.fig, self.axs_planned_traj = plt.subplots(1,1)
             self.fig_states, self.axs_planned_states = plt.subplots(6,1)
 
+    def dict2matrix(self, values):
+        return np.diag(self.tuning[self.param_set][values])
+
     def build_solver(self):
         build_solver_start = time.time()
 
         # Cost function weights
         R_var = 'R' if self.Nu == 3 else 'R_full'
-        Q = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "Q")
-        R = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, R_var)
-        P = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "P")
+        Q = self.dict2matrix("Q")
+        R = self.dict2matrix(R_var)
+        P = self.dict2matrix("P")
 
         self.Q = ca.MX(Q)
         self.P = ca.MX(P)

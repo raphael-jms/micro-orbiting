@@ -1,13 +1,19 @@
 import yaml
 import numpy as np
+from ament_index_python.packages import get_package_share_directory
+import os
+import yaml
 
-def read_yaml(file_path, *keys):
+def read_yaml(file_name, *keys):
     """
     Reads a value from a YAML file. The keys should be passed ordered by the hierarchy level
     of the file from top- to low-level.
     """
     try:
-        with open(file_path, 'r') as file:
+        config_dir = get_package_share_directory('micro_orbiting_mpc')
+        config_file = os.path.join(config_dir, 'config', file_name)
+
+        with open(config_file, 'r') as file:
             data = yaml.safe_load(file)
         
         result = data
@@ -16,7 +22,7 @@ def read_yaml(file_path, *keys):
         
         return result
     except FileNotFoundError:
-        print(f"Error: File '{file_path}' not found.")
+        print(f"Error: File '{config_file}' not found.")
     except yaml.YAMLError as e:
         print(f"Error parsing YAML file: {e}")
     except KeyError as e:

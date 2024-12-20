@@ -1,6 +1,27 @@
 # micro-orbiting
 
 
+## Available parameters in config dir:
+
+### MPC params
+- mode: faultfree, reactive, spiralMPC_linearizing, spiralMPC_eMPC, dummy
+- horizon: MPC horizon
+- time_step: MPC sampling time
+- trajectory_tracking: True/False
+- *evtl* param mode name?
+- param_set: P1, P2, ...
+- solver_opts: Dict of solver options
+- dt: MPC time step
+- uub: input upper bounds (list of [x, y])
+- ulb: input lower bounds (list of [x, y])
+- xub: state upper bounds (list of [x, y])
+- xlb: state lower bounds (list of [x, y])
+
+### Trajectory params
+- traj_shape: generate_point_stabilizing, generate_sin, generate_line, generate_polynomial, generate_circle
+- traj_duration: int
+- Actuator faults: List of [[actuator], intensity_between_0_to_1, start_time]
+                Only use if faults should be present at start
 
 # ToDos
 
@@ -13,3 +34,6 @@
 
 - [ ] Create a damage simulation node
 - [ ] Find a solution to the jump of the angle for the MPC
+
+
+- [ ] how to load trajectories?

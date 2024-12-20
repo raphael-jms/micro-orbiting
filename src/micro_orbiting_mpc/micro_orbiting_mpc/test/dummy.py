@@ -22,7 +22,7 @@ class DummyController(ControllerBaseClass):
         self.input_handler = InputHandlerImproved(self.model, self.input_bounds)
 
         self.k = 0.01
-        self.d = 0.01
+        self.d = 0.05
 
     def get_control(self, x0, t):
         e_x = x0[0] - 3
@@ -31,6 +31,12 @@ class DummyController(ControllerBaseClass):
         control_x = -self.k * e_x - 0.1 * x0[2]
         control_y = -self.k * e_y - 0.1 * x0[3]
         # control_alpha = -self.k * x0[4]
+        alpha = x0[4]
+
+        [control_x, control_y] = list(
+            # np.array([[np.cos(alpha), -np.sin(alpha)], [np.sin(alpha), np.cos(alpha)]]).reshape(2,2) @ np.array([control_x, control_y])
+            np.array([[np.cos(alpha), np.sin(alpha)], [-np.sin(alpha), np.cos(alpha)]]).reshape(2,2) @ np.array([control_x, control_y])
+        )
 
         # PD controller for alpha
         alpha = x0[4]

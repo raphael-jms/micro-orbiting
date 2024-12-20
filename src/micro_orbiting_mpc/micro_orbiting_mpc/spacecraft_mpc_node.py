@@ -44,6 +44,8 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDur
 from transforms3d.euler import quat2euler
 import math
 import time
+from ament_index_python.packages import get_package_share_directory
+import os
 
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -63,6 +65,7 @@ from micro_orbiting_msgs.srv import SetPose
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
+from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 
 from micro_orbiting_mpc.test.dummy import DummyModel, DummyController
 
@@ -105,8 +108,49 @@ class SpacecraftMPCNode(Node):
             depth=1
         )
 
-        # get parameters
-        self.mode = self.declare_parameter('mode', 'dummy').value
+        # Define default parameters
+        robot_params = {
+            'mode': 'dummy',
+            'time_step': 0.1,
+            'horizon': 10,
+            'trajectory_tracking': True,
+            'param_set': "P1",
+            'solver_opts': { 'ipopt': {'tol': 1e-5} },
+            'traj_shape': "generate_point_stabilizing",
+            'traj_duration': 30,
+            'tuning': {
+                'P1': { 'Q': [1.0] * 6, 'R': [1.0] * 3, 'R_full': [1.0] * 8, 'P_mult': 1.0 }
+            }
+        }
+
+        # Helper function to flatten and declare parameters 
+        # (ROS2 doesn't allow nested parameters, instead they are declared as tuning.P1.Q etc.)
+        def declare_params_recursive(params, prefix=''):
+            for key, value in params.items():
+                param_name = f"{prefix}{key}" if prefix else key
+                if isinstance(value, dict):
+                    declare_params_recursive(value, f"{param_name}.")
+                else:
+                    self.declare_parameter(param_name, value)
+        
+        declare_params_recursive(robot_params)
+
+        # Get the actual parameter values (either from the parameter server or the default values)
+        def get_params_recursive(params, prefix=''):
+            result = {}
+            for key, value in params.items():
+                param_name = f"{prefix}{key}" if prefix else key
+                if isinstance(value, dict):
+                    result[key] = get_params_recursive(value, f"{param_name}.")
+                else:
+                    result[key] = self.get_parameter(param_name).value
+            return result
+
+        actual_params = get_params_recursive(robot_params)
+
+        # Set class attributes using the actual values
+        for param, value in actual_params.items():
+            setattr(self, param, value)
 
         # create subscribers
         self.status_sub = self.create_subscription(
@@ -134,24 +178,47 @@ class SpacecraftMPCNode(Node):
             qos_profile)
 
         # create publishers
-        self.publisher_offboard_mode = self.create_publisher(OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
-        self.publisher_direct_actuator = self.create_publisher(ActuatorMotors, '/fmu/in/actuator_motors', qos_profile)
-        self.predicted_path_pub = self.create_publisher(Path, '/px4_mpc/predicted_path', 10)
-        self.reference_pub = self.create_publisher(Marker, "/px4_mpc/reference", 10)
-        self.reference_pub = self.create_publisher(Marker, "/px4_mpc/reference", 10)
+        self.publisher_offboard_mode = self.create_publisher(
+            OffboardControlMode, 
+            '/fmu/in/offboard_control_mode', 
+            qos_profile)
+        self.publisher_direct_actuator = self.create_publisher(
+            ActuatorMotors, 
+            '/fmu/in/actuator_motors', 
+            qos_profile)
+        self.predicted_path_pub = self.create_publisher(
+            Path, 
+            '/px4_mpc/predicted_path', 
+            10)
+        self.reference_pub = self.create_publisher(
+            Marker, 
+            "/px4_mpc/reference", 
+            10)
+        self.reference_pub = self.create_publisher(
+            Marker, 
+            "/px4_mpc/reference", 
+            10)
 
         timer_period = 0.1  # seconds
+        timer_period = self.get_parameter('time_step').value
         self.timer = self.create_timer(timer_period, self.cmdloop_callback)
 
         self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
 
         # Create model and controller
         match (self.mode):
-            case 'nominal' | 'reactive' :
-                # nominal:  Assumes nominal case without actuator failures, no way to react
-                # reactive: Assumes actuator failures can occur, but start without any
+            case 'faultfree' | 'reactive' :
+                # faultfree:  Assumes nominal case without actuator failures, no way to react
+                # reactive: Assumes actuator failures can occur, but starts without any
                 self.model = FreeFlyerDynamicsFull(timer_period)
-                self.controller = DummyModel()
+                self.params = {
+                    "failure_case": "faultfree",
+                    "horizon": self.horizon,
+                    "uub": np.ones((1,self.model.m)), # as inputs are normalized
+                    "ulb": -1 * np.ones((1,self.model.m)),
+                    "tuning": self.tuning
+                }
+                self.controller = GenericMPC(self.model, self.params)
             case 'spiralMPC_linearizing':
                 # Actuator failures present from start, fb linearizing MPC controller
                 self.model = DummyModel()
@@ -176,39 +243,75 @@ class SpacecraftMPCNode(Node):
 
         self.updater = GiveUpdate(timer_period, rate=1)
 
+    def vehicle_attitude_callback(self, msg):
+        """
+        Callback for attitude
+        Transform from NED (North, East, Down) to non-standard NWU (North, West, Up) coordinate sys
+        """
+        new_quaternion = [msg.q[0], msg.q[1], -msg.q[2], -msg.q[3]]
+
+        heading = quat2euler(new_quaternion, axes="szyx") # Both message and library with quaternion form (w, x, y, z)
+                                                 # Transform: static (rotation around global axes) z->y->x
+        self.orientation_z = heading[0]
+        self.orientation_y = heading[2]
+        self.orientation_x = heading[1]
+
     def vehicle_local_position_callback(self, msg):
         """
         Callback for local position
-        Transform directly from NED (North, East, Down) to standard x-y-z coordinate system
+        Transform from NED (North, East, Down) to non-standard NWU (North, West, Up) coordinate sys
         """
-        self.vehicle_local_position[0] = msg.y
-        self.vehicle_local_position[1] = msg.x
+        self.vehicle_local_position[0] = msg.x
+        self.vehicle_local_position[1] = -msg.y
         self.vehicle_local_position[2] = -msg.z
-        self.vehicle_local_velocity[0] = msg.vy
-        self.vehicle_local_velocity[1] = msg.vx
+        self.vehicle_local_velocity[0] = msg.vx
+        self.vehicle_local_velocity[1] = -msg.vy
         self.vehicle_local_velocity[2] = -msg.vz
 
         self.orientation_z = -msg.heading
 
-    def vehicle_attitude_callback(self, msg):
-        """
-        Callback for local orientation
-        Transform from quaternion to angle and then from NED (North, East, Down) to standard x-y-z coordinate system
-        """
-        heading = quat2euler(msg.q, axes="szyx") # Both message and library with quaternion form (w, x, y, z)
-                                                 # Transform: static (rotation around global axes) z->y->x
-        self.orientation_z = - heading[0]
-        self.orientation_y = heading[2]
-        self.orientation_x = heading[1]
-
     def vehicle_angular_velocity_callback(self, msg):
         """
-        Callback for local angular velocity
-        Transform directly from NED (North, East, Down) to standard x-y-z coordinate system
+        Callback for angular velocity
+        Transform from NED (North, East, Down) to non-standard NWU (North, West, Up) coordinate sys
         """
-        self.angular_velocity_x = msg.xyz[1]
-        self.angular_velocity_y = msg.xyz[0]
+        self.angular_velocity_x = msg.xyz[0]
+        self.angular_velocity_y = -msg.xyz[1]
         self.angular_velocity_z = -msg.xyz[2]
+
+    # def vehicle_local_position_callback(self, msg):
+    #     """
+    #     Callback for local position
+    #     Transform directly from NED (North, East, Down) to standard ENU coordinate system
+    #     """
+    #     self.vehicle_local_position[0] = msg.y
+    #     self.vehicle_local_position[1] = msg.x
+    #     self.vehicle_local_position[2] = -msg.z
+    #     self.vehicle_local_velocity[0] = msg.vy
+    #     self.vehicle_local_velocity[1] = msg.vx
+    #     self.vehicle_local_velocity[2] = -msg.vz
+
+    #     self.orientation_z = -msg.heading
+
+    # def vehicle_attitude_callback(self, msg):
+    #     """
+    #     Callback for local orientation
+    #     Transform from quaternion to angle and then from NED (North, East, Down) to standard ENU coordinate system
+    #     """
+    #     heading = quat2euler(msg.q, axes="szyx") # Both message and library with quaternion form (w, x, y, z)
+    #                                              # Transform: static (rotation around global axes) z->y->x
+    #     self.orientation_z = - heading[0]
+    #     self.orientation_y = heading[2]
+    #     self.orientation_x = heading[1]
+
+    # def vehicle_angular_velocity_callback(self, msg):
+    #     """
+    #     Callback for local angular velocity
+    #     Transform directly from NED (North, East, Down) to standard ENU coordinate system
+    #     """
+    #     self.angular_velocity_x = msg.xyz[1]
+    #     self.angular_velocity_y = msg.xyz[0]
+    #     self.angular_velocity_z = -msg.xyz[2]
 
     def vehicle_status_callback(self, msg):
         # print(f"NAV_STATUS: {msg.nav_state} - offboard status: {VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
@@ -218,8 +321,7 @@ class SpacecraftMPCNode(Node):
         actuator_outputs_msg = ActuatorMotors()
         actuator_outputs_msg.timestamp = int(Clock().now().nanoseconds / 1000)
 
-        # NOTE:
-        # Output is float[16]
+        # NOTE: Output is float[16]
         
         thrust_controller = u_pred.flatten() / self.model.max_force  # normalizes w.r.t. max thrust
         """
@@ -228,6 +330,8 @@ class SpacecraftMPCNode(Node):
 
         Alignment of the thruster definitions between the controller and the simulation environment
         where the numbers below are the indices of the simulation input signal
+
+        Drawing is according to the axes visible in Gazebo.
                 4     6
                 ▲     ▲
                 │F21  │F11
@@ -244,14 +348,43 @@ class SpacecraftMPCNode(Node):
                 5     7
         """
         thrust_simulator = np.zeros(12, dtype=np.float32)
-        thrust_simulator[0] = thrust_controller[6]
-        thrust_simulator[1] = thrust_controller[7]
-        thrust_simulator[2] = thrust_controller[4]
-        thrust_simulator[3] = thrust_controller[5]
-        thrust_simulator[4] = thrust_controller[2]
-        thrust_simulator[5] = thrust_controller[3]
-        thrust_simulator[6] = thrust_controller[0]
-        thrust_simulator[7] = thrust_controller[1]
+        # thrust_simulator[0] = thrust_controller[6]
+        # thrust_simulator[1] = thrust_controller[7]
+        # thrust_simulator[2] = thrust_controller[4]
+        # thrust_simulator[3] = thrust_controller[5]
+        # thrust_simulator[4] = thrust_controller[2]
+        # thrust_simulator[5] = thrust_controller[3]
+        # thrust_simulator[6] = thrust_controller[0]
+        # thrust_simulator[7] = thrust_controller[1]
+
+        """
+        The coordinate transforms to the NWU system lead to an angle information that is turned by
+        90 degree (i.e. the local coordinate system does not align with the one shown in Gazebo).
+        Thus, the actuators are turned once more:
+                0     2
+                ▲     ▲
+                │F21  │F11
+             ┌──┴─────┴──┐
+        5 ◄──┤           ├──► 4
+          F31│     ▲     │F32
+             │     │x    │
+             │  ◄──┘     │
+          F41│    y      │F42
+        7 ◄──┤           ├──► 6
+             └──┬─────┬──┘
+                │F22  │F12
+                ▼     ▼
+                1     3
+        """
+
+        thrust_simulator[0] = thrust_controller[2]
+        thrust_simulator[1] = thrust_controller[3]
+        thrust_simulator[2] = thrust_controller[0]
+        thrust_simulator[3] = thrust_controller[1]
+        thrust_simulator[4] = thrust_controller[5]
+        thrust_simulator[5] = thrust_controller[4]
+        thrust_simulator[6] = thrust_controller[7]
+        thrust_simulator[7] = thrust_controller[6]
 
         actuator_outputs_msg.control = thrust_simulator.flatten()
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
