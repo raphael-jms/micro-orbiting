@@ -33,7 +33,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'spacecraft_mpc_node = micro_orbiting_mpc.spacecraft_mpc_node:main'
+            'spacecraft_mpc_node = micro_orbiting_mpc.spacecraft_mpc_node:main',
+            'trajectory_init_node = micro_orbiting_mpc.init_node:main'
             # 'spacecraft_mpc_node = spacecraft_mpc_node:main'
         ],
     },

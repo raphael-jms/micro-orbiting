@@ -1,5 +1,18 @@
 # micro-orbiting
 
+## How to try
+
+Several launch files exist that start the controller with different functionality:
+- Nominal case (no faults)
+- ...
+
+The launch files can be found in the `launch` folder and be started as
+```
+ros2 launch micro_orbiting_mpc spacecraft_mpc_node.nominal_mpc.py 
+```
+
+The parameters can be changed in 
+
 
 ## Available parameters in config dir:
 

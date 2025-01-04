@@ -9,7 +9,8 @@
     solver_opts:
       ipopt.tol: 1e-5
     # Trajectory params
-    traj_shape: "generate_point_stabilizing"
+    traj_shape: "generate_line"
+    # traj_shape: "generate_point_stabilizing"
     traj_duration: 30
     tuning:
       P1: 

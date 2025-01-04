@@ -1,8 +1,8 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import PathJoinSubstitution
-from launch_ros.substitutions import FindPackageShare
-from launch.actions import SetEnvironmentVariable, ExecuteProcess
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
+from launch_ros.substitutions import FindPackageShare, Parameter
+from launch.actions import SetEnvironmentVariable, ExecuteProcess, DeclareLaunchArgument
 
 def generate_launch_description():
     config = PathJoinSubstitution([
@@ -10,9 +10,17 @@ def generate_launch_description():
         'config',
         'nominal_mpc.yaml'
     ])
-    
+
+    # Fallback if not found in parameters
+    traj_shape_arg = DeclareLaunchArgument(
+        'traj_shape',
+        default_value='hover',
+        description='Shape of the trajectory to follow'   
+    )
+   
     return LaunchDescription([
         SetEnvironmentVariable('PYTHONUNBUFFERED', '1'),
+        traj_shape_arg,
         Node(
             package='micro_orbiting_mpc',
             executable='spacecraft_mpc_node',
@@ -24,16 +32,22 @@ def generate_launch_description():
             additional_env={'PYTHONUNBUFFERED': '1'}, # should also force unbuffered output
         ),
 
-        # publish a trajectory once
         # ExecuteProcess(
-        #     cmd=['ros2', 'topic', 'pub', '--once', '/trajectory_commands',
-        #          'micro_orbiting_msgs/msg/TrajectoryMsg',
-        #          '{"action": "hover", "duration": 30, "file_path": ""}'],
+        #     cmd=[
+        #         'ros2', 'topic', 'pub', '--once', '/trajectory_commands',
+        #         'micro_orbiting_msgs/msg/SetTrajectory',
+        #         [
+        #             '{action: "', LaunchConfiguration('traj_shape'), '", duration: 30, file_path: ""}'
+        #         ],
+        #         '--qos-reliability', 'reliable'
+        #     ],
         # ),
-        ExecuteProcess(
-            cmd=['ros2', 'topic', 'pub', '--once', '/trajectory_commands',
-                'micro_orbiting_msgs/msg/SetTrajectory',
-                '{"action": "hover", "duration": 30, "file_path": ""}',
-                '--qos-reliability', 'reliable'],
+        
+        Node(
+            package='micro_orbiting_mpc',
+            executable='trajectory_init_node',
+            name='trajectory_init_node',
+            parameters=[config],  # Use the same config file
+            output='screen',
         ),
     ])
