@@ -74,7 +74,7 @@ class GenericMPC(ControllerBaseClass):
         R_var = 'R' if self.Nu == 3 else 'R_full'
         Q = self.dict2matrix("Q")
         R = self.dict2matrix(R_var)
-        P = self.dict2matrix("P")
+        P = self.tuning[self.param_set]["P_mult"] * Q
 
         self.Q = ca.MX(Q)
         self.P = ca.MX(P)
@@ -200,6 +200,8 @@ class GenericMPC(ControllerBaseClass):
 
         # Set constraints
         con = ca.vertcat(*(con_eq + con_ineq))
+        print(con_eq_lb)
+        print(*con_ineq_lb)
         self.con_lb = ca.vertcat(con_eq_lb, *con_ineq_lb)
         self.con_ub = ca.vertcat(con_eq_ub, *con_ineq_ub)
 

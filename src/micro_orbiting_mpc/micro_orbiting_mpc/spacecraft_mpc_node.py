@@ -61,6 +61,7 @@ from px4_msgs.msg import VehicleLocalPosition
 from px4_msgs.msg import ActuatorMotors
 
 from micro_orbiting_msgs.srv import SetPose
+from micro_orbiting_msgs.msg import SetTrajectory
 
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
@@ -152,70 +153,17 @@ class SpacecraftMPCNode(Node):
         for param, value in actual_params.items():
             setattr(self, param, value)
 
-        # create subscribers
-        self.status_sub = self.create_subscription(
-            VehicleStatus,
-            '/fmu/out/vehicle_status',
-            self.vehicle_status_callback,
-            qos_profile)
-
-        self.attitude_sub = self.create_subscription(
-            VehicleAttitude,
-            '/fmu/out/vehicle_attitude',
-            self.vehicle_attitude_callback,
-            qos_profile)
-
-        self.angular_vel_sub = self.create_subscription(
-            VehicleAngularVelocity,
-            '/fmu/out/vehicle_angular_velocity',
-            self.vehicle_angular_velocity_callback,
-            qos_profile)
-
-        self.local_position_sub = self.create_subscription(
-            VehicleLocalPosition,
-            '/fmu/out/vehicle_local_position',
-            self.vehicle_local_position_callback,
-            qos_profile)
-
-        # create publishers
-        self.publisher_offboard_mode = self.create_publisher(
-            OffboardControlMode, 
-            '/fmu/in/offboard_control_mode', 
-            qos_profile)
-        self.publisher_direct_actuator = self.create_publisher(
-            ActuatorMotors, 
-            '/fmu/in/actuator_motors', 
-            qos_profile)
-        self.predicted_path_pub = self.create_publisher(
-            Path, 
-            '/px4_mpc/predicted_path', 
-            10)
-        self.reference_pub = self.create_publisher(
-            Marker, 
-            "/px4_mpc/reference", 
-            10)
-        self.reference_pub = self.create_publisher(
-            Marker, 
-            "/px4_mpc/reference", 
-            10)
-
-        timer_period = 0.1  # seconds
-        timer_period = self.get_parameter('time_step').value
-        self.timer = self.create_timer(timer_period, self.cmdloop_callback)
-
-        self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
-
         # Create model and controller
         match (self.mode):
             case 'faultfree' | 'reactive' :
                 # faultfree:  Assumes nominal case without actuator failures, no way to react
                 # reactive: Assumes actuator failures can occur, but starts without any
-                self.model = FreeFlyerDynamicsFull(timer_period)
+                self.model = FreeFlyerDynamicsFull(self.time_step)
                 self.params = {
                     "failure_case": "faultfree",
                     "horizon": self.horizon,
-                    "uub": np.ones((1,self.model.m)), # as inputs are normalized
-                    "ulb": -1 * np.ones((1,self.model.m)),
+                    "uub": [1] * self.model.m, # as inputs are normalized
+                    "ulb": [-1] * self.model.m,
                     "tuning": self.tuning
                 }
                 self.controller = GenericMPC(self.model, self.params)
@@ -241,7 +189,59 @@ class SpacecraftMPCNode(Node):
         self.angular_velocity_x, self.angular_velocity_y, self.angular_velocity_z = 0.0, 0.0, 0.0
         self.vehicle_local_velocity = np.array([0.0, 0.0, 0.0])
 
-        self.updater = GiveUpdate(timer_period, rate=1)
+        # create subscribers
+        self.status_sub = self.create_subscription(
+            VehicleStatus,
+            '/fmu/out/vehicle_status',
+            self.vehicle_status_callback,
+            qos_profile)
+
+        self.attitude_sub = self.create_subscription(
+            VehicleAttitude,
+            '/fmu/out/vehicle_attitude',
+            self.vehicle_attitude_callback,
+            qos_profile)
+
+        self.angular_vel_sub = self.create_subscription(
+            VehicleAngularVelocity,
+            '/fmu/out/vehicle_angular_velocity',
+            self.vehicle_angular_velocity_callback,
+            qos_profile)
+
+        self.local_position_sub = self.create_subscription(
+            VehicleLocalPosition,
+            '/fmu/out/vehicle_local_position',
+            self.vehicle_local_position_callback,
+            qos_profile)
+
+        self.trajectory_sub = self.create_subscription(
+            SetTrajectory,
+            'trajectory_commands',
+            self.trajectory_callback,
+            qos_profile)
+
+        # create publishers
+        self.publisher_offboard_mode = self.create_publisher(
+            OffboardControlMode, 
+            '/fmu/in/offboard_control_mode', 
+            qos_profile)
+        self.publisher_direct_actuator = self.create_publisher(
+            ActuatorMotors, 
+            '/fmu/in/actuator_motors', 
+            qos_profile)
+        self.predicted_path_pub = self.create_publisher(
+            Path, 
+            '/px4_mpc/predicted_path', 
+            10)
+        self.reference_pub = self.create_publisher(
+            Marker, 
+            "/px4_mpc/reference", 
+            10)
+
+        self.timer = self.create_timer(self.time_step, self.cmdloop_callback)
+
+        self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
+        self.updater = GiveUpdate(self.time_step, rate=1)
 
     def vehicle_attitude_callback(self, msg):
         """
@@ -317,6 +317,19 @@ class SpacecraftMPCNode(Node):
         # print(f"NAV_STATUS: {msg.nav_state} - offboard status: {VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
         self.nav_state = msg.nav_state
 
+    def trajectory_callback(self, msg):
+        try:
+            self.controller.load_trajectory(
+                action=msg.action,
+                duration=msg.duration,
+                file_path=msg.file_path if msg.file_path else None
+            )
+            self.get_logger().info(f'Loaded new trajectory: {msg.action}')
+        except ValueError as e:
+            self.get_logger().error(f'Failed to load trajectory: {str(e)}')
+        except AttributeError as e:
+            self.get_logger().error(f'No controller initialized: {str(e)}')
+
     def publish_control(self, u_pred):
         actuator_outputs_msg = ActuatorMotors()
         actuator_outputs_msg.timestamp = int(Clock().now().nanoseconds / 1000)
@@ -390,6 +403,17 @@ class SpacecraftMPCNode(Node):
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
     def cmdloop_callback(self):
+        # Check if a trajectory is loaded to the controller
+        if self.controller.trajectory is None:
+            self.get_logger().info('Waiting for a trajectory to follow...')
+            time.sleep(1)
+            if self.controller.trajectory is None:
+                self.get_logger().info('Defaulting to hovering as no other trajectory arrived yet.')
+                default_traj = SetTrajectory()
+                default_traj.action = "hover"
+                default_traj.duration = 100
+                self.trajectory_callback(default_traj)
+
         # Publish offboard control modes
         offboard_msg = OffboardControlMode()
         offboard_msg.timestamp = int(Clock().now().nanoseconds / 1000)

@@ -84,7 +84,7 @@ class ControllerBaseClass:
                                 t, np.zeros(t.shape), np.zeros(t.shape), 
                                 np.ones(t.shape), np.zeros(t.shape), np.zeros(t.shape)
                             ))
-                case 'point_stabilizing':
+                case 'point_stabilizing' | 'hover':
                     x_ref = np.zeros((6, t.shape[0]))
                 case 'polynomial':
                     gain = 0.5
@@ -135,7 +135,7 @@ class ControllerBaseClass:
             t = generate_trajectory(duration, form='line')
         elif action == "generate_polynomial":
             t = generate_trajectory(duration, form='polynomial')
-        elif action == "generate_point_stabilizing":
+        elif action == "generate_point_stabilizing" or action == "hover":
             t = generate_trajectory(duration, form='point_stabilizing')
         elif action == "generate_circle":
             t = generate_trajectory(duration, form='circle')
