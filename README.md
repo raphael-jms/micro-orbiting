@@ -11,7 +11,10 @@ The launch files can be found in the `launch` folder and be started as
 ros2 launch micro_orbiting_mpc spacecraft_mpc_node.nominal_mpc.py 
 ```
 
-The parameters can be changed in 
+The parameters can be changed in the corresponding parameter file (for the case of the example above, `config/nominal_mpc.yaml`) and include
+- MPC parameters (horizon, time step, ...)
+- the trajectory
+- MPC tuning (multiple parameter sets are possible and can be selected using the variable `param_set`, also in the config file)
 
 
 ## Available parameters in config dir:

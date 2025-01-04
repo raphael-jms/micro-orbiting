@@ -238,10 +238,26 @@ class SpacecraftMPCNode(Node):
             "/px4_mpc/reference", 
             10)
 
+        if not self.wait_for_initial_trajectory():
+            self.get_logger().info('Defaulting to hovering as no other trajectory arrived yet.')
+            default_traj = SetTrajectory()
+            default_traj.action = "hover"
+            default_traj.duration = 100
+            self.trajectory_callback(default_traj)
+
         self.timer = self.create_timer(self.time_step, self.cmdloop_callback)
 
         self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
         self.updater = GiveUpdate(self.time_step, rate=1)
+
+    def wait_for_initial_trajectory(self, timeout_sec=5.0):
+        start_time = self.get_clock().now()
+        
+        while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if self.controller.trajectory is not None:
+                return True
+        return False
 
     def vehicle_attitude_callback(self, msg):
         """
@@ -403,17 +419,6 @@ class SpacecraftMPCNode(Node):
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
     def cmdloop_callback(self):
-        # Check if a trajectory is loaded to the controller
-        if self.controller.trajectory is None:
-            self.get_logger().info('Waiting for a trajectory to follow...')
-            time.sleep(1)
-            if self.controller.trajectory is None:
-                self.get_logger().info('Defaulting to hovering as no other trajectory arrived yet.')
-                default_traj = SetTrajectory()
-                default_traj.action = "hover"
-                default_traj.duration = 100
-                self.trajectory_callback(default_traj)
-
         # Publish offboard control modes
         offboard_msg = OffboardControlMode()
         offboard_msg.timestamp = int(Clock().now().nanoseconds / 1000)
