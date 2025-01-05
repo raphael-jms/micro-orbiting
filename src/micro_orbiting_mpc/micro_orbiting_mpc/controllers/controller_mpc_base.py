@@ -301,8 +301,8 @@ class GenericMPC(ControllerBaseClass):
         # initialize variables
         # Initial guess of the warm start variables
         if self.optimal_solution is not None:
-            self.optvar_init['x'] = self.optimal_solution['x'][1:] + [ca.DM([0,0,0,0,0,0])]
-            self.optvar_init['u'] = self.optimal_solution['u'][1:] + [ca.DM([0,0,0])]
+            self.optvar_init['x'] = self.optimal_solution['x'][1:] + [ca.DM([0] * self.Nx)]
+            self.optvar_init['u'] = self.optimal_solution['u'][1:] + [ca.DM([0] * self.Nu)]
         else:
             self.optvar_init = self.opt_var(0)
         self.optvar_init['x', 0] = self.optvar_x0[0]

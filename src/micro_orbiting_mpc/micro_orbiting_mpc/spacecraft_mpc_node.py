@@ -46,6 +46,7 @@ import math
 import time
 from ament_index_python.packages import get_package_share_directory
 import os
+import casadi as ca
 
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -63,7 +64,7 @@ from px4_msgs.msg import ActuatorMotors
 from micro_orbiting_msgs.srv import SetPose
 from micro_orbiting_msgs.msg import SetTrajectory
 
-from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
+from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, FreeFlyerDynamicsSimplified
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
@@ -352,6 +353,9 @@ class SpacecraftMPCNode(Node):
 
         # NOTE: Output is float[16]
         
+        if isinstance(u_pred, ca.DM):
+            u_pred = u_pred.full().flatten() # Convert casadi to numpy
+
         thrust_controller = u_pred.flatten() / self.model.max_force  # normalizes w.r.t. max thrust
         """
         thruster order in controller: [F11, F12, F21, F22, F31, F32, F41, F42]
@@ -385,7 +389,6 @@ class SpacecraftMPCNode(Node):
         # thrust_simulator[5] = thrust_controller[3]
         # thrust_simulator[6] = thrust_controller[0]
         # thrust_simulator[7] = thrust_controller[1]
-
         """
         The coordinate transforms to the NWU system lead to an angle information that is turned by
         90 degree (i.e. the local coordinate system does not align with the one shown in Gazebo).
@@ -395,17 +398,16 @@ class SpacecraftMPCNode(Node):
                 │F21  │F11
              ┌──┴─────┴──┐
         5 ◄──┤           ├──► 4
-          F31│     ▲     │F32
-             │     │x    │
+          F31│  _  ▲_    │F32
+             │  y  │x    │
              │  ◄──┘     │
-          F41│    y      │F42
+          F41│           │F42
         7 ◄──┤           ├──► 6
              └──┬─────┬──┘
                 │F22  │F12
                 ▼     ▼
                 1     3
         """
-
         thrust_simulator[0] = thrust_controller[2]
         thrust_simulator[1] = thrust_controller[3]
         thrust_simulator[2] = thrust_controller[0]
@@ -434,16 +436,24 @@ class SpacecraftMPCNode(Node):
         self.setpoint_position = np.zeros_like(self.vehicle_local_position)
         error_position = self.vehicle_local_position - self.setpoint_position
 
-        x0 = np.array([error_position[0],
+        # x0 = np.array([error_position[0],
+        #                 error_position[1],
+        #                 self.vehicle_local_velocity[0],
+        #                 self.vehicle_local_velocity[1],
+        #                 self.orientation_z,
+        #                 self.angular_velocity_z]).reshape(-1, 1)
+
+        x0 = np.array([ 
+                        error_position[0],
                         error_position[1],
+                        self.orientation_z,
                         self.vehicle_local_velocity[0],
                         self.vehicle_local_velocity[1],
-                        self.orientation_z,
                         self.angular_velocity_z]).reshape(-1, 1)
 
-        u_pred, u_simple = self.controller.get_control(x0, 0.0)
+        u_pred = self.controller.get_control(x0, 0.0)
         # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
-        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} \n \t Control {u_simple}, actual control: {u_pred}")
+        self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} actual control: {u_pred}")
 
         if self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD:
             self.publish_control(u_pred)

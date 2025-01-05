@@ -20,15 +20,14 @@ def generate_launch_description():
             parameters=[config],
             output='screen',
             prefix='python3 -u',  # Forces unbuffered output: actually shows output directly
-            emulate_tty=True,
             additional_env={'PYTHONUNBUFFERED': '1'}, # should also force unbuffered output
         ),
        
+        # Initialize the trajectory with the value from the parameter file.
         Node(
             package='micro_orbiting_mpc',
             executable='trajectory_init_node',
             name='trajectory_init_node',
             parameters=[config],  # Use the same config file
-            output='screen',
         ),
     ])

@@ -75,10 +75,21 @@ class FreeFlyerDynamicsSimplified:
         # distance of the thrusters to the center of mass
         self.d = 0.14
         d = self.d
+
+        # Ref. comment in spacecraft_mpc_node / publish_control: As Gazebo is using NWU instead of 
+        # ENU, the axes need to be turned from the original position
+
         # Matrix to calculate resulting forces and torques from the thruster forces
         self.u_full2u_simple_np = np.array([[ 1, -1,  1, -1,  0,  0,  0,  0],
                                          [ 0,  0,  0,  0,  1, -1,  1, -1],
                                          [ d, -d, -d,  d,  d, -d, -d,  d]])
+
+        # # Matrix to calculate resulting forces and torques from the thruster forces
+        # self.u_full2u_simple_np = np.array([
+        #                                  [ 1, -1,  1, -1,  0,  0,  0,  0],
+        #                                  [ 0,  0,  0,  0, -1,  1, -1,  1],
+        #                                  [-d,  d,  d, -d, -d,  d,  d, -d]])
+
         self.u_full2u_simple = ca.MX(self.u_full2u_simple_np)
 
         self.u_ub_simple = np.array([2*self.max_force, 2*self.max_force, 4*self.max_force*d])

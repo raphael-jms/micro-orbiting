@@ -62,7 +62,7 @@ class ControllerBaseClass:
 
             return np.array(data['x']).T
 
-        def generate_trajectory(duration, form):
+        def generate_trajectory(duration, form, **kwargs):
             """
             Get a trajectory for the robot to follow.
             """
@@ -85,7 +85,19 @@ class ControllerBaseClass:
                                 np.ones(t.shape), np.zeros(t.shape), np.zeros(t.shape)
                             ))
                 case 'point_stabilizing' | 'hover':
-                    x_ref = np.zeros((6, t.shape[0]))
+                    if 'position' in kwargs:
+                        x_pos = kwargs['position']
+                    else:
+                        x_pos = [0, 0, 0]
+                    # x_ref = np.zeros((6, t.shape[0]))
+                    x_ref = np.stack((
+                        x_pos[0] * np.ones(t.shape),
+                        x_pos[1] * np.ones(t.shape),
+                        x_pos[2] * np.ones(t.shape),
+                        np.zeros(t.shape),
+                        np.zeros(t.shape),
+                        np.zeros(t.shape)
+                    ))
                 case 'polynomial':
                     gain = 0.5
                     px = [-1.97286583226378e-15, 1.66180981216056e-13, 6.12318911042380e-11, -1.32571002201637e-08, 1.16484944065588e-06, -5.66119580093472e-05, 0.00163003172607062, -0.0276296048987181, 0.257558753061823, -1.11192499745334, 1.51531002733896, 7.20774354733917e-10]
@@ -137,6 +149,15 @@ class ControllerBaseClass:
             t = generate_trajectory(duration, form='polynomial')
         elif action == "generate_point_stabilizing" or action == "hover":
             t = generate_trajectory(duration, form='point_stabilizing')
+        elif 'hover' in action:
+            name, *params = action.split('-')
+            if name != 'hover':
+                raise ValueError(f"Invalid action '{action}'.")
+            if len(params) != 3:
+                raise ValueError(f"Invalid number of parameters for action '{action}'. Use 'hover'"
+                                 +" or 'hover-<x>-<y>-<alpha>'")
+            position = [float(p) for p in params]
+            t = generate_trajectory(duration, form='point_stabilizing', position=position)
         elif action == "generate_circle":
             t = generate_trajectory(duration, form='circle')
         elif action == "load":

@@ -1,6 +1,6 @@
 # micro-orbiting
 
-## How to try
+## How to use
 
 Several launch files exist that start the controller with different functionality:
 - Nominal case (no faults)
@@ -16,6 +16,7 @@ The parameters can be changed in the corresponding parameter file (for the case 
 - the trajectory
 - MPC tuning (multiple parameter sets are possible and can be selected using the variable `param_set`, also in the config file)
 
+The trajectories can be set by publishing to the topic `/trajectory_commands`. The one from the parameter file is published automatically at startup and will be overwritten with every new ROS trajectory message.
 
 ## Available parameters in config dir:
 
@@ -47,9 +48,10 @@ The parameters can be changed in the corresponding parameter file (for the case 
 - [ ] Later
     - [ ] Rename classes (e.g. InputHandlerImproved to ControlAllocator, max_force to max_thrust)
 
+- [ ] Delete `sim_launch.py`? What exactly does it do?
 
 - [ ] Create a damage simulation node
 - [ ] Find a solution to the jump of the angle for the MPC
 
 
-- [ ] how to load trajectories?
+- [x] how to load trajectories?

@@ -2,6 +2,7 @@
   ros__parameters:
     # MPC params
     mode: "faultfree"
+    # mode: "dummy"
     horizon: 10
     time_step: 0.1
     trajectory_tracking: true
@@ -9,7 +10,7 @@
     solver_opts:
       ipopt.tol: 1e-5
     # Trajectory params
-    traj_shape: "generate_line"
+    traj_shape: "hover"
     # traj_shape: "generate_point_stabilizing"
     traj_duration: 30
     tuning:
