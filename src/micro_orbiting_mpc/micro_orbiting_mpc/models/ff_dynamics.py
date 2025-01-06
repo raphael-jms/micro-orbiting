@@ -52,11 +52,6 @@ class FreeFlyerDynamicsSimplified:
 
         self.name="FreeFlyerDynamicsSimplified"
 
-        # The model itself calculates with the physical values. In order to get cm-precision,
-        # convert into the appropriate range of values for the error function, eg [x1]=1m=100cm
-        #                 in the model:   m,   m, rad, m/s, m/s, rad/s 
-        self.normalize_error = np.array([100, 100,   1, 100, 100, 1])
-
     def set_dynamics(self):
         self.dynamics = self.rk4_integrator(self.dynamics_simplified)
 
@@ -76,19 +71,10 @@ class FreeFlyerDynamicsSimplified:
         self.d = 0.14
         d = self.d
 
-        # Ref. comment in spacecraft_mpc_node / publish_control: As Gazebo is using NWU instead of 
-        # ENU, the axes need to be turned from the original position
-
         # Matrix to calculate resulting forces and torques from the thruster forces
         self.u_full2u_simple_np = np.array([[ 1, -1,  1, -1,  0,  0,  0,  0],
                                          [ 0,  0,  0,  0,  1, -1,  1, -1],
                                          [ d, -d, -d,  d,  d, -d, -d,  d]])
-
-        # # Matrix to calculate resulting forces and torques from the thruster forces
-        # self.u_full2u_simple_np = np.array([
-        #                                  [ 1, -1,  1, -1,  0,  0,  0,  0],
-        #                                  [ 0,  0,  0,  0, -1,  1, -1,  1],
-        #                                  [-d,  d,  d, -d, -d,  d,  d, -d]])
 
         self.u_full2u_simple = ca.MX(self.u_full2u_simple_np)
 
@@ -307,9 +293,7 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
 
         super().__init__(dt)
 
-        self.normalize_error = np.ones(5)
         self.set_dynamics()
-
         self.name = "SpiralDynamics"
 
     @classmethod

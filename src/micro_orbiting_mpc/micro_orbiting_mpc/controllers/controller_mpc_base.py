@@ -251,8 +251,6 @@ class GenericMPC(ControllerBaseClass):
 
         # Prepare variables
         e_vec = x - xr
-        # Bring the error into an appropriate range
-        # e_vec = ca.times(self.model.normalize_error[0:self.Nopt], e_vec) # element-wise multiplication
 
         # Calculate running cost
         ln = ca.mtimes(ca.mtimes(e_vec.T, Q), e_vec) + ca.mtimes(ca.mtimes(u.T, R), u)

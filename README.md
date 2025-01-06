@@ -53,5 +53,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [ ] Create a damage simulation node
 - [ ] Find a solution to the jump of the angle for the MPC
 
+- [ ] Add normalization of the error again?
+
 
 - [x] how to load trajectories?
