@@ -52,7 +52,6 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 from visualization_msgs.msg import Marker
 
-
 from px4_msgs.msg import OffboardControlMode
 from px4_msgs.msg import VehicleStatus
 from px4_msgs.msg import VehicleAttitude
@@ -63,11 +62,14 @@ from px4_msgs.msg import ActuatorMotors
 
 from micro_orbiting_msgs.srv import SetPose
 from micro_orbiting_msgs.msg import SetTrajectory
+from micro_orbiting_msgs.msg import ControllerValues
 
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, FreeFlyerDynamicsSimplified
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
+from micro_orbiting_mpc.controllers.nominalMPC_no_faults.terminal_constraints_no_faults import get_terminal_constraints_no_faults
+from micro_orbiting_mpc.controllers.fb_linearizing_controller import FBLinearizingController
 
 from micro_orbiting_mpc.test.dummy import DummyModel, DummyController
 
@@ -153,6 +155,28 @@ class SpacecraftMPCNode(Node):
         # Set class attributes using the actual values
         for param, value in actual_params.items():
             setattr(self, param, value)
+        
+        # create publishers
+        self.publisher_offboard_mode = self.create_publisher(
+            OffboardControlMode, 
+            '/fmu/in/offboard_control_mode', 
+            qos_profile)
+        self.publisher_direct_actuator = self.create_publisher(
+            ActuatorMotors, 
+            '/fmu/in/actuator_motors', 
+            qos_profile)
+        self.predicted_path_pub = self.create_publisher(
+            Path, 
+            '/px4_mpc/predicted_path', 
+            10)
+        self.reference_pub = self.create_publisher(
+            Marker, 
+            "/px4_mpc/reference", 
+            10)
+        self.controller_stats_pub = self.create_publisher(
+            ControllerValues,
+            "/px4_mpc/controller_values",
+            10)
 
         # Create model and controller
         match (self.mode):
@@ -165,17 +189,28 @@ class SpacecraftMPCNode(Node):
                     "horizon": self.horizon,
                     "uub": [1] * self.model.m, # as inputs are normalized
                     "ulb": [-1] * self.model.m,
-                    "tuning": self.tuning
+                    "tuning": self.tuning,
+                    "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
+                                                                    self.tuning[self.param_set]),
                 }
-                self.controller = GenericMPC(self.model, self.params)
+                self.controller = GenericMPC(self.model, self.params, self)
             case 'spiralMPC_linearizing':
                 # Actuator failures present from start, fb linearizing MPC controller
                 self.model = DummyModel()
-                self.controller = SpiralMPC(self.model)
+                self.params = {
+                    # TODO: Add parameters
+                }
+                self.controller = SpiralMPC(self.model, self.params, self)
             case 'spiralMPC_eMPC':
                 # Actuator failures present from start, MPC controller based on eMPC
                 self.model = DummyModel()
-                self.controller = FancyMPC(self.model)
+                self.params = {
+                    # TODO: Add parameters
+                }
+                self.controller = FancyMPC(self.model, self.params, self)
+            case 'feedback_linearizing_controller':
+                self.model = DummyModel() # TODO: Replace with SpiralModel
+                self.controller = FBLinearizingController(self.model, self)
             case 'dummy':
                 # Dummy controller for testing
                 self.model = DummyModel()
@@ -221,24 +256,7 @@ class SpacecraftMPCNode(Node):
             self.trajectory_callback,
             qos_profile)
 
-        # create publishers
-        self.publisher_offboard_mode = self.create_publisher(
-            OffboardControlMode, 
-            '/fmu/in/offboard_control_mode', 
-            qos_profile)
-        self.publisher_direct_actuator = self.create_publisher(
-            ActuatorMotors, 
-            '/fmu/in/actuator_motors', 
-            qos_profile)
-        self.predicted_path_pub = self.create_publisher(
-            Path, 
-            '/px4_mpc/predicted_path', 
-            10)
-        self.reference_pub = self.create_publisher(
-            Marker, 
-            "/px4_mpc/reference", 
-            10)
-
+        # wait_for_initial_trajectory() returns False if no trajectory is received within 5 seconds
         if not self.wait_for_initial_trajectory():
             self.get_logger().info('Defaulting to hovering as no other trajectory arrived yet.')
             default_traj = SetTrajectory()
@@ -252,6 +270,7 @@ class SpacecraftMPCNode(Node):
         self.updater = GiveUpdate(self.time_step, rate=1)
 
     def wait_for_initial_trajectory(self, timeout_sec=5.0):
+        """ Wait for the first trajectory to arrive, abort after timeout_sec and return False """
         start_time = self.get_clock().now()
         
         while (self.get_clock().now() - start_time).nanoseconds / 1e9 < timeout_sec:

@@ -4,9 +4,9 @@ import cvxpy as cp
 import casadi as ca
 
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds
-from micro_orbiting_mpc.util.utils import read_yaml_matrix, read_yaml, EllipticalTerminalConstraint
+from micro_orbiting_mpc.util.utils import EllipticalTerminalConstraint
 
-def get_terminal_constraints(model):
+def get_terminal_constraints_no_faults(model, tuning):
     """
     Calculate the terminal incredients according to Chen and Allgöwer (1998).
     """
@@ -32,7 +32,7 @@ def get_terminal_constraints(model):
 
     # **Step 3:** Find largest $\alpha$ s.t. $Kx \in U$ for all $x \in \Omega_{\alpha} = \{x \in R^n \vert x^T P_{cost} x \leq \alpha \}$
 
-    alpha, P_cost = get_state_set_satisfying_input_constraints(A_K, K, kappa, model)
+    alpha, P_cost = get_state_set_satisfying_input_constraints(A_K, K, kappa, model, tuning)
 
     # **Step 4:** Find the largest $\alpha_1 \in (0, \alpha]$ s.t. the following equation is satisfied: $$\sup \left\{ \frac{\Vert \Phi(x) \Vert}{\Vert x \Vert} \vert x \in \Omega_{\alpha}, x \neq 0 \right\} = L_{\Phi} \leq \frac{\kappa \lambda_{\min}(P)}{\Vert P \Vert}$$
     # Use the procedure described in Remark 3.1:
@@ -61,10 +61,9 @@ def get_linearized_feedback(A, B):
 
     return K
 
-def get_state_set_satisfying_input_constraints(A_K, K, kappa, model):
-    tuning_file = "controllers/tuning.yaml"
-    Qx = read_yaml_matrix(tuning_file, "faultfree", "P1", "Q")
-    Qu = read_yaml_matrix(tuning_file, "faultfree", "P1", "R")
+def get_state_set_satisfying_input_constraints(A_K, K, kappa, model, tuning):
+    Qx = np.diag(tuning["Q"])
+    Qu = np.diag(tuning["R"])
 
     # P_cost = la.solve_continuous_lyapunov( (A_K + kappa * np.eye(A_K.shape[0])).T , - (Qx + K.T @ Qu @ K) )
     P_cost = la.solve_continuous_are( A_K + kappa * np.eye(A_K.shape[0]), np.zeros((6,1)), Qx + K.T @ Qu @ K, 1 )

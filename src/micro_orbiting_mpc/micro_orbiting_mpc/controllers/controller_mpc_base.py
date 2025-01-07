@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 
+from micro_orbiting_msgs.msg import ControllerValues
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
 from micro_orbiting_mpc.controllers.fb_linearizing_controller import FBLinearizingController
 from micro_orbiting_mpc.util.terminal_constraints import PolytopicTerminalConstraint
@@ -26,6 +27,29 @@ class GenericMPC(ControllerBaseClass):
         "tuning": {},
         "solver_opts": None}
 
+    # Encoding to send the status of the solver through ROS messages
+    SOLVE_STATUS = {
+        "Solve_Succeeded": 0,
+        "Solved_To_Acceptable_Level": 1,
+        "Infeasible_Problem_Detected": 2,
+        "Search_Direction_Becomes_Too_Small": 3,
+        "Diverging_Iterates": 4,
+        "User_Requested_Stop": 5,
+        "Maximum_Iterations_Exceeded": 6,
+        "Restoration_Failed": 7,
+        "Error_In_Step_Computation": 8,
+        "Not_Enough_Degrees_Of_Freedom": 9,
+        "Invalid_Problem_Definition": 10,
+        "Invalid_Option": 11,
+        "Invalid_Number_Detected": 12,
+        "Unrecoverable_Exception": 13,
+        "NonIpopt_Exception_Thrown": 14,
+        "Insufficient_Memory": 15,
+        "Internal_Error": 16,
+        "Maximum_CpuTime_Exceeded": 17,
+        "Feasible_Point_Found": 18
+    }
+
     def get_param(self, param):
         """ Get the parameter value if set, default to DEFAULT_PARAMS if not """
         try:
@@ -33,8 +57,8 @@ class GenericMPC(ControllerBaseClass):
         except KeyError:
             raise KeyError(f"Parameter '{param}' not found in mpc_params or DEFAULT_PARAMS")
 
-    def __init__(self, model, params):
-        super().__init__()
+    def __init__(self, model, params, ros_node):
+        super().__init__(ros_node)
         self.mpc_params = params
 
         # set models, dynamics, bounds, input handler, model parameters
@@ -63,6 +87,47 @@ class GenericMPC(ControllerBaseClass):
         if self.plot_plannned_traj:
             self.fig, self.axs_planned_traj = plt.subplots(1,1)
             self.fig_states, self.axs_planned_states = plt.subplots(6,1)
+
+        # Publish ControllerValues messages. Publisher instantiated in the ROS node.
+        self.controller_stats_pub = self._ros_node.controller_stats_pub
+
+    def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, slv_status):
+        """
+        Publish the last controller values to the ROS topic.
+        """
+        msg = ControllerValues()
+        msg.header.stamp = self._ros_node.get_clock().now().to_msg()
+        msg.header.frame_id = "controller_values"
+        msg.x1 = x0[0].item()
+        msg.y1 = x0[1].item()
+        msg.alpha = x0[2].item()
+        msg.x2 = x0[3].item()
+        msg.y2 = x0[4].item()
+        msg.omega = x0[5].item()
+
+        msg.u = u.full().flatten().tolist()
+        msg.u_nom = u_nom.flatten().tolist()
+        msg.u_control = u_contr.full().flatten().tolist()
+
+        msg.plan_x1 = [x[0].__float__() for x in x_plan]
+        msg.plan_y1 = [x[1].__float__() for x in x_plan]
+        msg.plan_alpha = [x[2].__float__() for x in x_plan]
+        msg.plan_x2 = [x[3].__float__() for x in x_plan]
+        msg.plan_y2 = [x[4].__float__() for x in x_plan]
+        msg.plan_omega = [x[5].__float__() for x in x_plan]
+
+        msg.e1 = e[0].item()
+        msg.e2 = e[1].item()
+        msg.e_alpha = e[2].item()
+        msg.e3 = e[3].item()
+        msg.e5 = e[4].item()
+        msg.e_omega = e[5].item()
+
+        msg.solver_time = slv_time
+        msg.control_cost = cost
+        msg.solver_state = self.SOLVE_STATUS[slv_status]
+
+        self.controller_stats_pub.publish(msg)
 
     def dict2matrix(self, values):
         return np.diag(self.tuning[self.param_set][values])
@@ -164,9 +229,9 @@ class GenericMPC(ControllerBaseClass):
         terminal_constraint = self.get_param("terminal_constraint")
         if isinstance(terminal_constraint, EllipticalTerminalConstraint):
             # Terminal constraint
-            print("Setting elliptical terminal constraint")
-            print(terminal_constraint.P)
-            print(terminal_constraint.alpha)
+            self.logger.info("Setting elliptical terminal constraint")
+            self.logger.info(np.array2string(terminal_constraint.P))
+            self.logger.info(str(terminal_constraint.alpha))
             P = terminal_constraint.P
             alpha = terminal_constraint.alpha
             con_ineq.append((x_t-x_r).T @ P @ (x_t-x_r))
@@ -190,6 +255,10 @@ class GenericMPC(ControllerBaseClass):
             
             # Terminal cost
             obj += self.terminal_cost(x_t, x_r, self.P)
+        elif terminal_constraint is None:
+            self.logger.info("No terminal constraint set.")
+        else:
+            raise ValueError(f"Invalid terminal constraint: {terminal_constraint}")
 
         # Equality constraints are reformulated as inequality constraints with 0<=g(x)<=0
         # -> Refer to CasADi documentation: NLP solver only accepts inequality constraints
@@ -218,13 +287,13 @@ class GenericMPC(ControllerBaseClass):
             options.update(solver_opts)
         self.solver = ca.nlpsol('mpc_solver', 'ipopt', nlp, options)
 
-        print('\n________________________________________')
-        print(f"# Time to build mpc solver: {time.time() - build_solver_start} sec")
-        print(f"# Number of variables: {self.num_var}")
-        print(f"# Number of equality constraints: {num_eq_con}")
-        print(f"# Number of inequality constraints: {num_ineq_con}")
-        print(f"# Horizon steps: {self.Nt * self.dt}s into the future")
-        print('----------------------------------------')
+        self.logger.info('\n________________________________________')
+        self.logger.info(f"# Time to build mpc solver: {time.time() - build_solver_start} sec")
+        self.logger.info(f"# Number of variables: {self.num_var}")
+        self.logger.info(f"# Number of equality constraints: {num_eq_con}")
+        self.logger.info(f"# Number of inequality constraints: {num_ineq_con}")
+        self.logger.info(f"# Horizon steps: {self.Nt * self.dt}s into the future")
+        self.logger.info('----------------------------------------')
 
     def prepare_logging(self):
         self.data = {'x': LogData(self.dt, ['x1', 'y1', 'alpha', 'x2', 'y2', 'omega']),
@@ -264,6 +333,7 @@ class GenericMPC(ControllerBaseClass):
     def get_control(self, x0, t):
         if self.trajectory_tracking:
             x_ref, u_ref = self.get_next_trajectory_part(t)
+            x0 = self.handle_angle_wraparound(x0, x_ref[:,0])
             self.x_sp = x_ref.reshape(-1, 1, order='F')
             self.u_sp = u_ref.reshape(-1, 1, order='F')
             # self.u_sp = np.zeros(self.Nu * (self.Nt+1))
@@ -285,11 +355,16 @@ class GenericMPC(ControllerBaseClass):
         self.data["u"].add_data(t, u_res)
         self.data["u_nom"].add_data(t, self.u_sp[0:self.Nu])
         self.data["u_control"].add_data(t, u[0])
-        self.data["e"].add_data(t, x0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
+        self.data["e"].add_data(t, x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten())
         self.data["slv_time"].add_data(t, slv_time)
         self.data['control_cost'].add_data(t, cost)
         self.data['solver_state'].add_data(t, slv_status)
         # print(f"t: {t}, x0: {x0.T}, x_sp: {self.x_sp[0:self.Nopt].T}, e: {(x0.flatten() - self.x_sp[0:self.Nopt].flatten()).T}, u: {u.T}")
+
+        # Publish the controller values to ROS
+        self.publish_last_controller_values(t, x0, x, u_res, self.u_sp[0:self.Nu], u[0], 
+                                            x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten(), 
+                                            slv_time, cost, slv_status)
         return u_res
 
     def solve_mpc(self, x0):
@@ -338,9 +413,9 @@ class GenericMPC(ControllerBaseClass):
                 # print(terminal.alpha)
             else:
                 x_r = np.zeros_like(x)
-            print(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  Term. constraint: {((x-x_r).T @ terminal.P @ (x-x_r)).item():5.2f} <= {terminal.alpha:5.2f}  |  {status}")
+            self.logger.info(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  Term. constraint: {((x-x_r).T @ terminal.P @ (x-x_r)).item():5.2f} <= {terminal.alpha:5.2f}  |  {status}")
         else:
-            print(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  {status}")
+            self.logger.info(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  {status}")
 
         return optvar['x'], optvar['u'], slv_time, float(sol['f']), status
 
@@ -353,6 +428,14 @@ class GenericMPC(ControllerBaseClass):
         x_r = self.trajectory[:, id_s:id_e]
         u_r = self.nominal_input[:, id_s:id_e]
         return x_r, u_r
+
+    def handle_angle_wraparound(self, x0, x_r):
+        """
+        Angles are given in [-pi, pi]. This function maps them to [alpha_des - pi, alpha_des + pi]
+        """
+        # alpha_des = x_r[2]
+        x0[2] = x0[2] + 2*np.pi * np.round((x_r[2] - x0[2]) / (2*np.pi))
+        return x0
 
     def assign_trajectory(self, traj):
         # Prolong the trajectory to prevent the controller from running out of points 
@@ -407,6 +490,7 @@ class GenericMPC(ControllerBaseClass):
         self.plot_physical_input(u, u_nom, u_cont, t)
 
         self.plot_control_cost()
+        plt.show(block=False)
 
     def plot_physical_input(self, u, u_nom, u_cont, t):
         fig, axs = plt.subplots(4, 1)

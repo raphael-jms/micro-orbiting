@@ -13,8 +13,8 @@ from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
 
 class FBLinearizingController(ControllerBaseClass):
-    def __init__(self, model):
-        super().__init__()
+    def __init__(self, model, ros_node):
+        super().__init__(ros_node)
         self.set_model(model)
 
         self.r = self.model.spiral_params.r

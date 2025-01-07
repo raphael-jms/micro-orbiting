@@ -6,9 +6,11 @@ import warnings
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved
 
 class ControllerBaseClass:
-    def __init__(self):
+    def __init__(self, ros_node):
         self.trajectory = None
         self.model = None
+        self._ros_node = ros_node
+        self.logger = self._ros_node.get_logger()
 
     def set_model(self, model):
         self.model = copy.deepcopy(model)
@@ -150,12 +152,12 @@ class ControllerBaseClass:
         elif action == "generate_point_stabilizing" or action == "hover":
             t = generate_trajectory(duration, form='point_stabilizing')
         elif 'hover' in action:
-            name, *params = action.split('-')
+            name, *params = action.split('_')
             if name != 'hover':
                 raise ValueError(f"Invalid action '{action}'.")
             if len(params) != 3:
                 raise ValueError(f"Invalid number of parameters for action '{action}'. Use 'hover'"
-                                 +" or 'hover-<x>-<y>-<alpha>'")
+                                 +" or 'hover_<x>_<y>_<alpha>'")
             position = [float(p) for p in params]
             t = generate_trajectory(duration, form='point_stabilizing', position=position)
         elif action == "generate_circle":

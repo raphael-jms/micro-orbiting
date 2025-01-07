@@ -13,7 +13,8 @@ find_package(rosidl_default_generators REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetPose.srv"
   "msg/SetTrajectory.msg"
-  DEPENDENCIES geometry_msgs
+  "msg/ControllerValues.msg"
+  DEPENDENCIES geometry_msgs std_msgs
 )
 
 if(BUILD_TESTING)

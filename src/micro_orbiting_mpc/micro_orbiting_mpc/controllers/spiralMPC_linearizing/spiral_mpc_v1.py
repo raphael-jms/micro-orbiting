@@ -20,13 +20,13 @@ class SpiralMPC(GenericMPC):
     DEFAULT_PARAMS["trajectory_tracking"] = True
     DEFAULT_PARAMS["terminal_constraint"] = "from_file"
 
-    def __init__(self, model, params, include_omega=False):
+    def __init__(self, model, params, ros_node, include_omega=False):
         self.include_omega = include_omega # Include omega in the optimization variables
 
         self.spiral_params = SpiralParameters(model)
         self.terminal_incredients = TerminalIncredients(model)
 
-        super().__init__(model, params)
+        super().__init__(model, params, ros_node)
 
     def set_cost_functions(self):
         # For running cost, the code from the parent class is used

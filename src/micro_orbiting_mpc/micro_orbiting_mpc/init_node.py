@@ -49,7 +49,8 @@ class TrajectoryInitNode(Node):
 def main():
     rclpy.init()
     node = TrajectoryInitNode()
-    rclpy.spin(node)
+    # rclpy.spin(node)
+    rclpy.spin_once(node, timeout_sec=1.0)
     node.destroy_node()
     rclpy.shutdown()
 

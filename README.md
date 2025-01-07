@@ -57,3 +57,15 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 
 
 - [x] how to load trajectories?
+
+# Notes
+
+Install PlotJuggler:
+```
+sudo snap install plotjuggler
+sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
+```
+and run with
+```
+ros2 run plotjuggler plotjuggler
+```

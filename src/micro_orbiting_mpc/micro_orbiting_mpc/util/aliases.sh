@@ -15,5 +15,5 @@ function r2thz() {
 # Micro Orbiting MPC shortcuts
 function bot_hover() {
     # Hover at x, y, alpha
-    ros2 topic pub --once /trajectory_commands micro_orbiting_msgs/msg/SetTrajectory "{action: 'hover-$1-$2-$3', duration: 5, file_path: ''}"
+    ros2 topic pub --once /trajectory_commands micro_orbiting_msgs/msg/SetTrajectory "{action: 'hover_$1_$2_$3', duration: 5, file_path: ''}"
 }
