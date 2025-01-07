@@ -6,9 +6,9 @@ Several launch files exist that start the controller with different functionalit
 - Nominal case (no faults)
 - ...
 
-The launch files can be found in the `launch` folder and be started as
+The launch file can be found in the `launch` folder and be started as
 ```
-ros2 launch micro_orbiting_mpc spacecraft_mpc_node.nominal_mpc.py 
+ros2 launch micro_orbiting_mpc spacecraft_mpc_node.launch.py config_file:=nominal_mpc.yaml
 ```
 
 The parameters can be changed in the corresponding parameter file (for the case of the example above, `config/nominal_mpc.yaml`) and include
@@ -54,6 +54,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [ ] Find a solution to the jump of the angle for the MPC
 
 - [ ] Add normalization of the error again?
+- [ ] Remove option for no trajectory tracking
 
 
 - [x] how to load trajectories?

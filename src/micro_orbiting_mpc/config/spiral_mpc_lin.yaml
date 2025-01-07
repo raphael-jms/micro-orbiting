@@ -1,0 +1,31 @@
+/**:
+  ros__parameters:
+    # MPC params
+    mode: "spiralMPC_linearizing"
+    horizon: 10
+    time_step: 0.1
+    trajectory_tracking: true
+    param_set: "P1"
+    solver_opts:
+      ipopt.tol: 1e-5
+    # Trajectory params
+    traj_shape: "hover"
+    # traj_shape: "generate_point_stabilizing"
+    traj_duration: 30
+    actuator_faults: # Format: [ [act_id_1, act_id_2], intensity, start_time]
+      - [[3,1], 1, 0]
+      - [[4,1], 1, 0]
+    tuning:
+      P1: 
+        Q: [10.0, 10.0, 10.0, 1.0, 1.0, 0.1]
+        # R: [0.1, 0.1, 0.1]
+        R: [1.0, 1.0, 1.0]
+        R_full: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        P_mult: 1.0  # P = P_mult * Q
+        terminal_const_file: "controllers/Tuning_Helpers/terminal_incredients_faultfree.npz"
+      P2: 
+        Q: [5.0, 5.0, 10.0, 0.2, 0.2, 0.1]
+        R: [1.0, 1.0, 1.0]
+        R_full: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        P_mult: 1.0  # P = P_mult * Q
+
