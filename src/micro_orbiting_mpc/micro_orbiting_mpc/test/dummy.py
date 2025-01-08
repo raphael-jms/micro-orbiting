@@ -15,8 +15,8 @@ class DummyController(ControllerBaseClass):
     Dummy controller for testing purposes
     Assumes that no failures have occured
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, ros_node):
+        super().__init__(ros_node)
         self.name = 'DummyController'
         self.model = FreeFlyerDynamicsFull(0.1)
         self.input_bounds = InputBounds(self.model)

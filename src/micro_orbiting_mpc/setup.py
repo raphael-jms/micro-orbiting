@@ -7,15 +7,7 @@ package_name = 'micro_orbiting_mpc'
 setup(
     name=package_name,
     version='0.0.1',
-    # packages=find_packages(),
-    # package_dir={'': 'micro_orbiting_mpc'}, 
-    # packages=find_packages(where="micro_orbiting_mpc"),
-    # packages=find_packages(where=f'{package_name}*', include="*"), 
-    # packages=find_packages(include=[package_name]), 
     packages=find_packages(), 
-    # packages=["models", "controllers", "util"],
-    # packages=[package_name, "models", "controllers", "util"],
-    # packages=[package_name, package_name+"/models", package_name+"/controllers", package_name+"/util"],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -34,7 +26,8 @@ setup(
     entry_points={
         'console_scripts': [
             'spacecraft_mpc_node = micro_orbiting_mpc.spacecraft_mpc_node:main',
-            'trajectory_init_node = micro_orbiting_mpc.init_node:main'
+            'trajectory_init_node = micro_orbiting_mpc.init_node:main',
+            'fault_simulation_node = micro_orbiting_mpc.fault_simulation_node:main'
             # 'spacecraft_mpc_node = spacecraft_mpc_node:main'
         ],
     },

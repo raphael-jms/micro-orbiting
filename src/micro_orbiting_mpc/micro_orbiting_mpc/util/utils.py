@@ -17,6 +17,7 @@ def read_yaml(file_name, *keys):
             data = yaml.safe_load(file)
         
         result = data
+
         for key in keys:
             result = result[key]
         
@@ -31,6 +32,9 @@ def read_yaml(file_name, *keys):
         print(f"An unexpected error occurred: {e}")
     
     return None
+
+def read_ros_parameter_file(file_name, *keys):
+    return read_yaml(file_name, *["/**", "ros__parameters"], *keys)
 
 def read_yaml_matrix(file_path, *keys):
     diagonal = read_yaml(file_path, *keys)

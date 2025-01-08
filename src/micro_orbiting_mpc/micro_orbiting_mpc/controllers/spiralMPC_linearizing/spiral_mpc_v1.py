@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import warnings
 import time
 
+from micro_orbiting_msgs.msg import ControllerValues
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
@@ -16,15 +17,15 @@ from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalT
 
 class SpiralMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
-    DEFAULT_PARAMS["failure_case"] = "spiraling_5"
     DEFAULT_PARAMS["trajectory_tracking"] = True
     DEFAULT_PARAMS["terminal_constraint"] = "from_file"
 
-    def __init__(self, model, params, ros_node, include_omega=False):
+    def __init__(self, model, params, ros_node, include_omega=True):
         self.include_omega = include_omega # Include omega in the optimization variables
 
         self.spiral_params = SpiralParameters(model)
-        self.terminal_incredients = TerminalIncredients(model)
+        print(params)
+        self.terminal_incredients = TerminalIncredients(model, params["tuning"][params["param_set"]])
 
         super().__init__(model, params, ros_node)
 
@@ -42,8 +43,8 @@ class SpiralMPC(GenericMPC):
         build_solver_start = time.time()
 
         # Cost function weights
-        Q = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "Q")
-        R = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "R")
+        Q = self.dict2matrix("Q")
+        R = self.dict2matrix("R")
 
         self.Q = ca.MX(Q)
         self.R = ca.MX(R)
@@ -225,7 +226,7 @@ class SpiralMPC(GenericMPC):
         # c, u, slv_time, cost, slv_status = [1], [[0, 0, 0]], 3, 4, 5
         # u_res = u_nom_alpha_corrected + self.u_comp
 
-        if True:
+        if False:
             self.data["x"].add_data(t, x0)
             self.data["u"].add_data(t, u_res)
             self.data["u_nom"].add_data(t, u_nom_alpha_corrected)
@@ -241,6 +242,21 @@ class SpiralMPC(GenericMPC):
             self.data['c'].add_data(t, c0)
             self.data['ce'].add_data(t, c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
 
+        self.publish_last_controller_values(
+            t,
+            x0,
+            self.x_sp,
+            u_res,
+            u_nom_alpha_corrected,
+            u[0],
+            x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten(),
+            slv_time,
+            cost,
+            slv_status,
+            c0, 
+            c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten()
+        )
+
         if self.plot_plannned_traj:
             colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
             color = colors[int(t/self.dt) % 5]
@@ -251,6 +267,58 @@ class SpiralMPC(GenericMPC):
                 self.axs_planned_states[i].plot(t, c_planned[i,0], color + "o")
 
         return self.ih.get_physical_input(u_res)
+
+    def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, 
+                                       slv_status, center, center_error):
+        """
+        Publish the last controller values to the ROS topic.
+        Use only the values of ControllerValues that are relevant
+        """
+        msg = ControllerValues()
+        msg.header.stamp = self._ros_node.get_clock().now().to_msg()
+        msg.header.frame_id = "controller_values"
+        msg.x1 = x0[0].item()
+        msg.y1 = x0[1].item()
+        msg.alpha = x0[2].item()
+        msg.x2 = x0[3].item()
+        msg.y2 = x0[4].item()
+        msg.omega = x0[5].item()
+
+        msg.u = u.flatten().tolist()
+        msg.u_nom = u_nom.flatten().tolist()
+        msg.u_control = u_contr.full().flatten().tolist()
+
+        x_plan = x_plan.reshape(5, -1, order='F')
+        msg.plan_x1 = [x[0].__float__() for x in x_plan]
+        msg.plan_y1 = [x[1].__float__() for x in x_plan]
+        msg.plan_alpha = [x[2].__float__() for x in x_plan]
+        msg.plan_x2 = [x[3].__float__() for x in x_plan]
+        msg.plan_y2 = [x[4].__float__() for x in x_plan]
+        msg.plan_omega = [x[5].__float__() for x in x_plan]
+
+        msg.e1 = e[0].item()
+        msg.e2 = e[1].item()
+        msg.e3 = e[2].item()
+        msg.e5 = e[3].item()
+        msg.e_omega = e[4].item()
+
+        msg.solver_time = slv_time
+        msg.control_cost = cost
+        msg.solver_state = self.SOLVE_STATUS[slv_status]
+
+        msg.center_state_x = center[0].item()
+        msg.center_state_y = center[1].item()
+        msg.center_state_omega = center[4].item()
+        msg.center_state_vx = center[2].item()
+        msg.center_state_vy = center[3].item()
+
+        msg.center_error_x = center_error[0].item()
+        msg.center_error_y = center_error[1].item()
+        msg.center_error_omega = center_error[4].item()
+        msg.center_error_vx = center_error[2].item()
+        msg.center_error_vy = center_error[3].item()
+
+        self.controller_stats_pub.publish(msg)
 
     def calculate_cost_parts(self, c, u):
         cc_final = c[self.Nt][0:self.Nopt]

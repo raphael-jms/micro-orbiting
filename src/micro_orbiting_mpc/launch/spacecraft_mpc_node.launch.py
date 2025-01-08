@@ -26,7 +26,10 @@ def generate_launch_description():
             package='micro_orbiting_mpc',
             executable='spacecraft_mpc_node',
             name='spacecraft_mpc_node',
-            parameters=[config],
+            parameters=[
+                config,
+                {'config_file': LaunchConfiguration('config_file')}
+            ],
             output='screen',
             prefix='python3 -u',
             additional_env={'PYTHONUNBUFFERED': '1'},
@@ -37,5 +40,19 @@ def generate_launch_description():
             executable='trajectory_init_node',
             name='trajectory_init_node',
             parameters=[config],
+        ),
+
+        Node
+        (
+            package='micro_orbiting_mpc',
+            executable='fault_simulation_node',
+            name='fault_simulation_node',
+            parameters=[
+                config,
+                {'config_file': LaunchConfiguration('config_file')}
+            ],
+            output='screen',
+            prefix='python3 -u',
+            additional_env={'PYTHONUNBUFFERED': '1'},
         ),
     ])

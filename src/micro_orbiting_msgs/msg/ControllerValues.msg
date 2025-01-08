@@ -20,9 +20,9 @@ float64 e5
 float64 e_omega
 
 # Control inputs (u)
-float64[8] u
-float64[8] u_nom
-float64[8] u_control
+float64[] u
+float64[] u_nom
+float64[] u_control
 
 # Planned state trajectory
 float64[] plan_x1
@@ -36,6 +36,20 @@ float64[] plan_omega
 float64 control_cost
 float64 solver_time
 int32 solver_state
+
+# Center position (only used for orbiting)
+float64 center_state_x
+float64 center_state_y
+float64 center_state_omega
+float64 center_state_vx
+float64 center_state_vy
+
+float64 center_error_x
+float64 center_error_y
+float64 center_error_omega
+float64 center_error_vx
+float64 center_error_vy
+
 
 # For reference, the u arrays are organized as:
 # u[0] = u11, u[1] = u12

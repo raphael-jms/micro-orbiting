@@ -15,7 +15,6 @@ from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalT
 class GenericMPC(ControllerBaseClass):
     # Default parameters for the MPC controller and its child classes
     DEFAULT_PARAMS = {
-        "failure_case": "faultfree",
         "horizon": 10,
         "trajectory_tracking": True,
         "ulb": None,
@@ -68,7 +67,6 @@ class GenericMPC(ControllerBaseClass):
         self.trajectory = None
 
         self.tuning= self.get_param("tuning")
-        self.failure_case = self.get_param("failure_case")
         self.param_set = self.get_param("param_set")
 
         self.Nt = self.get_param("horizon")

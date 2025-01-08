@@ -13,7 +13,6 @@ from micro_orbiting_mpc.util.cost_handler import CostHandler
 
 class FancyMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
-    DEFAULT_PARAMS["failure_case"] = "explicit_mpc_spiraling"
     DEFAULT_PARAMS["trajectory_tracking"] = True
     DEFAULT_PARAMS["terminal_constraint"] = "from_file"
 

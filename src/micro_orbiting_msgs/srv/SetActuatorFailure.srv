@@ -1,0 +1,7 @@
+# Request
+int8[2] positions
+float64 intensity
+builtin_interfaces/Time timestamp
+---
+# Response
+bool success

@@ -13,8 +13,7 @@ from micro_orbiting_mpc.controllers.cost_function import get_cost_function
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
 
 class TerminalIncredients:
-    def __init__(self, model, tuning_file="./controllers/tuning.yaml", failure_case="spiraling_5", 
-                 param_set="P1"):
+    def __init__(self, model, tuning): # TODO delete this? failure_case="spiraling_5", 
         """
         Calculate the terminal incredients (terminal cost and constraints) for the feedback-
         linearized system.
@@ -61,15 +60,15 @@ class TerminalIncredients:
                               [0, 0, self.J]])
 
         # The cost matrices for the function used in the MPC; Used to calculate terminal cost
-        self.Q = read_yaml_matrix(tuning_file, failure_case, param_set, "Q")
-        self.R = read_yaml_matrix(tuning_file, failure_case, param_set, "R")
+        self.Q = np.diag(tuning["Q"])
+        self.R = np.diag(tuning["R"])
 
         print(f"Q = {self.Q}")
         print(f"R = {self.R}")
 
         # Used to derive a controller for the terminal region
-        Q_lin = read_yaml_matrix("./controllers/tuning.yaml", "spiraling_5", "P1", "Q_linfb")
-        R_lin = read_yaml_matrix("./controllers/tuning.yaml", "spiraling_5", "P1", "R_linfb")
+        Q_lin = np.diag(tuning["Q_linfb"])
+        R_lin = np.diag(tuning["R_linfb"])
         self.K, self.P = self.get_linearized_feedback(self.A_lin, self.B_lin, Q_lin, R_lin)
 
         self.A_lin_cl = self.A_lin - self.B_lin @ self.K

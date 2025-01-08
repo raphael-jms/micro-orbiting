@@ -42,6 +42,8 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 
 # ToDos
 
+- [ ] Check again with the bounds for the optimization in basic MPC!!!
+
 - [ ] Check code for unnecessary lines / commented out stuff to be deleted / ...
 - [ ] Decide how to distribute: With or without database?
 - [ ] Generalization to 3D?
@@ -54,7 +56,8 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [ ] Find a solution to the jump of the angle for the MPC
 
 - [ ] Add normalization of the error again?
-- [ ] Remove option for no trajectory tracking
+- [ ] Remove option for `trajectory_tracking=False`
+- [ ] Decide what to do with alternative to `spiral_5` (linearizing Spiral MPC)
 
 
 - [x] how to load trajectories?

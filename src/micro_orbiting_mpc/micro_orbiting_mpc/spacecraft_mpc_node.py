@@ -61,15 +61,19 @@ from px4_msgs.msg import VehicleLocalPosition
 from px4_msgs.msg import ActuatorMotors
 
 from micro_orbiting_msgs.srv import SetPose
+from micro_orbiting_msgs.srv import SetActuatorFailure
 from micro_orbiting_msgs.msg import SetTrajectory
 from micro_orbiting_msgs.msg import ControllerValues
 
-from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, FreeFlyerDynamicsSimplified
+from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, \
+    FreeFlyerDynamicsSimplified, SpiralDynamics
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 from micro_orbiting_mpc.controllers.nominalMPC_no_faults.terminal_constraints_no_faults import get_terminal_constraints_no_faults
 from micro_orbiting_mpc.controllers.fb_linearizing_controller import FBLinearizingController
+from micro_orbiting_mpc.models.ff_input_bounds import SpiralParameters
+from micro_orbiting_mpc.util.utils import read_yaml, read_ros_parameter_file
 
 from micro_orbiting_mpc.test.dummy import DummyModel, DummyController
 
@@ -123,26 +127,31 @@ class SpacecraftMPCNode(Node):
             'traj_shape': "generate_point_stabilizing",
             'traj_duration': 30,
             'tuning': {
-                'P1': { 'Q': [1.0] * 6, 'R': [1.0] * 3, 'R_full': [1.0] * 8, 'P_mult': 1.0 }
-            }
+                'P1': { 'Q': [1.0] * 6, 'R': [1.0] * 3, 'R_full': [1.0] * 8, 'P_mult': 1.0 },
+            },
+            'actuator_failures': []
         }
 
         # Helper function to flatten and declare parameters 
         # (ROS2 doesn't allow nested parameters, instead they are declared as tuning.P1.Q etc.)
         def declare_params_recursive(params, prefix=''):
             for key, value in params.items():
+                if key == 'tuning' or key == 'actuator_failures':
+                    continue # Load these seperately
                 param_name = f"{prefix}{key}" if prefix else key
                 if isinstance(value, dict):
                     declare_params_recursive(value, f"{param_name}.")
                 else:
                     self.declare_parameter(param_name, value)
-        
+
         declare_params_recursive(robot_params)
 
         # Get the actual parameter values (either from the parameter server or the default values)
         def get_params_recursive(params, prefix=''):
             result = {}
             for key, value in params.items():
+                if key == 'tuning' or key == 'actuator_failures':
+                    continue # Load these seperately
                 param_name = f"{prefix}{key}" if prefix else key
                 if isinstance(value, dict):
                     result[key] = get_params_recursive(value, f"{param_name}.")
@@ -156,6 +165,11 @@ class SpacecraftMPCNode(Node):
         for param, value in actual_params.items():
             setattr(self, param, value)
         
+        self.declare_parameter('config_file', 'nominal_mpc.yaml')
+        config_file = self.get_parameter('config_file').value
+        self.tuning = read_ros_parameter_file(config_file, 'tuning')
+        self.actuator_failures = read_ros_parameter_file(config_file, 'actuator_failures')
+
         # create publishers
         self.publisher_offboard_mode = self.create_publisher(
             OffboardControlMode, 
@@ -163,7 +177,8 @@ class SpacecraftMPCNode(Node):
             qos_profile)
         self.publisher_direct_actuator = self.create_publisher(
             ActuatorMotors, 
-            '/fmu/in/actuator_motors', 
+            '/micro_orbiting/control_signal',
+            # '/fmu/in/actuator_motors', 
             qos_profile)
         self.predicted_path_pub = self.create_publisher(
             Path, 
@@ -185,21 +200,34 @@ class SpacecraftMPCNode(Node):
                 # reactive: Assumes actuator failures can occur, but starts without any
                 self.model = FreeFlyerDynamicsFull(self.time_step)
                 self.params = {
-                    "failure_case": "faultfree",
                     "horizon": self.horizon,
                     "uub": [1] * self.model.m, # as inputs are normalized
                     "ulb": [-1] * self.model.m,
                     "tuning": self.tuning,
+                    "param_set": self.param_set,
                     "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
                                                                     self.tuning[self.param_set]),
                 }
                 self.controller = GenericMPC(self.model, self.params, self)
             case 'spiralMPC_linearizing':
                 # Actuator failures present from start, fb linearizing MPC controller
-                self.model = DummyModel()
+                self.sim_model = FreeFlyerDynamicsFull(self.time_step)
+
+                # Add actuator failures to the model
+                for fault in self.actuator_failures:
+                    self.sim_model.add_actuator_fault(fault["act_ids"], fault["intensity"])
+
+                # Used model is SpiralDynamics. With the creation of this models, the spiral
+                # parameters are already fixed. 
+                self.model = SpiralDynamics(self.time_step, SpiralParameters(self.sim_model))
+
+                print(self.tuning)
                 self.params = {
-                    # TODO: Add parameters
+                    "horizon": self.horizon,
+                    "tuning": self.tuning,
+                    "param_set": self.param_set
                 }
+
                 self.controller = SpiralMPC(self.model, self.params, self)
             case 'spiralMPC_eMPC':
                 # Actuator failures present from start, MPC controller based on eMPC
@@ -214,7 +242,7 @@ class SpacecraftMPCNode(Node):
             case 'dummy':
                 # Dummy controller for testing
                 self.model = DummyModel()
-                self.controller = DummyController()
+                self.controller = DummyController(self)
             case _:
                 self.get_logger().error('Unknown mode: ' + self.mode)
                 return
@@ -256,6 +284,12 @@ class SpacecraftMPCNode(Node):
             self.trajectory_callback,
             qos_profile)
 
+        # create services
+        self.actuator_failure_sub = self.create_service(
+            SetActuatorFailure,
+            'actuator_failure',
+            self.actuator_failure_callback)
+
         # wait_for_initial_trajectory() returns False if no trajectory is received within 5 seconds
         if not self.wait_for_initial_trajectory():
             self.get_logger().info('Defaulting to hovering as no other trajectory arrived yet.')
@@ -278,6 +312,39 @@ class SpacecraftMPCNode(Node):
             if self.controller.trajectory is not None:
                 return True
         return False
+
+    def actuator_failure_callback(self, request, response):
+        """
+        Callback for actuator failure service
+        """
+        response.success = False
+
+        if self.mode != 'reactive':
+            self.get_logger().warn("Adding errors during runtime is only supported for mode " +
+                                   f"'reactive'. Current mode is '{self.mode}'.")
+            return response
+
+        for idx in range(len(request.actuators)):
+            # Validate input
+            if not 0 <= request.intensity[idx] <= 1:
+                self.get_logger().warn('Invalid intensity value')
+                return response
+
+            if not len(request.actuators[idx]) == 2:
+                self.get_logger().warn('Invalid number of actuators')
+                return response
+
+            # Add actuator failure
+            try:
+                self.controller.add_actuator_fault(request.actuators[idx], request.intensity[idx])
+                self.get_logger().info(f'Registered actuator failure: [{request.actuators}], ' +
+                                    f'intensity: {request.intensity}')
+            except Exception as e:
+                self.get_logger().warn(f'Failed to set actuator failure: {str(e)}')
+                return response
+
+        response.success = True
+        return response
 
     def vehicle_attitude_callback(self, msg):
         """
