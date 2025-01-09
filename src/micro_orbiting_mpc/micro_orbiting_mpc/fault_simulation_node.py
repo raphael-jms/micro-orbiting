@@ -37,7 +37,14 @@ class FaultInjectionNode(Node):
         # Initialize the model
         self.declare_parameter('time_step', 0.01)
         self.time_step = self.get_parameter('time_step').value
-        self.model = FreeFlyerDynamicsFull(dt=self.time_step)
+        robot_parameter_defaults = {
+            "mass": 14.5, "inertia": 0.370, "max_force": 1.75, "thruster_distance_to_center": 0.14
+        }
+        self.robot_parameters = {}
+        for param in robot_parameter_defaults.keys():
+            self.declare_parameter(param, robot_parameter_defaults[param])
+            self.robot_parameters[param] = self.get_parameter(param).value
+        self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
 
         # Read initial faults from config
         self.declare_parameter('config_file', 'nominal_mpc.yaml')

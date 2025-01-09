@@ -1,14 +1,14 @@
 import numpy as np
 import casadi as ca
 import math
-import matplotlib.pyplot as plt
-# import micro_orbiting_mpc.models.ff_input_bounds as ff_bounds
-from micro_orbiting_mpc.models.ff_input_bounds import PlottingHelper, SpiralParameters
 import copy
+
+from micro_orbiting_mpc.models.ff_input_bounds import PlottingHelper, SpiralParameters
+from micro_orbiting_mpc.util.utils import read_yaml
 
 
 class FreeFlyerDynamicsSimplified:
-    def __init__(self, dt) -> None:
+    def __init__(self, dt, robot_params=None) -> None:
         """
         Class implementing the dynamics of the robot using the simplified dynamics that
         disregard the physical inputs and see the robot as driven by two forces and a torque. 
@@ -34,8 +34,8 @@ class FreeFlyerDynamicsSimplified:
                  input in N resp. Nm
         :type faulty_input_simple: np.array
         """
-
         self.dt = dt 
+        self.robot_params = robot_params
 
         self.n = 6
         self.m_simplified = 3
@@ -45,7 +45,7 @@ class FreeFlyerDynamicsSimplified:
         self.faulty_input_full = np.zeros((self.m_full, 1))
         self.faulty_input_simple = np.zeros((self.m_simplified, 1))
 
-        self.set_system_constants()
+        self.set_system_constants(robot_params)
         self.set_casadi_options()
         if type(self) == FreeFlyerDynamicsSimplified:
             # Child classes should set the dynamics themselves
@@ -56,26 +56,33 @@ class FreeFlyerDynamicsSimplified:
     def set_dynamics(self):
         self.dynamics = self.rk4_integrator(self.dynamics_simplified)
 
-    def set_system_constants(self):
+    def set_system_constants(self, robot_params):
         """
         Set the constants of the system.
         """
+        if robot_params is None:
+            print("WARNING: No robot parameters provided. Using default values. This might be " +
+                  " different from the simulation environment/the actual robot")
 
-        self.mass = 14.5
-        self.J = 0.370
-        self.max_force = 1.75
-        # self.max_force = 1.4
-        # self.max_force = 1.0
+            self.mass = 14.5
+            self.J = 0.370
+            self.max_force = 1.75
+ 
+            # distance of the thrusters to the center of mass
+            self.d = 0.14
+            print(f"The default parameters are: \n\t mass = {self.mass} kg\n\t J = {self.J} " +
+                  "kgm^2\n\t max_force = {self.max_force} N\n\t d = {self.d} m")
+        else:
+            self.mass = self.robot_params['mass']
+            self.J = self.robot_params['inertia']
+            self.max_force = self.robot_params['max_force']
+            self.d = self.robot_params['thruster_distance_to_center']
 
         self.u_lb_physical = np.zeros((self.m_full, 1))
         self.u_ub_physical = self.max_force * np.ones((self.m_full, 1))
 
-        # distance of the thrusters to the center of mass
-        # self.d = 0.12
-        self.d = 0.14
-        d = self.d
-
         # Matrix to calculate resulting forces and torques from the thruster forces
+        d = self.d
         self.u_full2u_simple_np = np.array([[ 1, -1,  1, -1,  0,  0,  0,  0],
                                          [ 0,  0,  0,  0,  1, -1,  1, -1],
                                          [ d, -d, -d,  d,  d, -d, -d,  d]])
@@ -237,7 +244,7 @@ class FreeFlyerDynamicsSimplified:
         return self.m_simplified
 
 class FreeFlyerDynamicsFull(FreeFlyerDynamicsSimplified):
-    def __init__(self, dt) -> None:
+    def __init__(self, dt, robot_params=None) -> None:
         """
         Class implementing the actual physical dynamics of the robot with the pysical inputs
 
@@ -253,7 +260,7 @@ class FreeFlyerDynamicsFull(FreeFlyerDynamicsSimplified):
         :type chull_input_bounds: scipy.spatial ConvexHull
         """
 
-        FreeFlyerDynamicsSimplified.__init__(self, dt)
+        FreeFlyerDynamicsSimplified.__init__(self, dt, robot_params)
 
         self.uub = self.u_ub_physical
         self.ulb = self.u_lb_physical
@@ -285,7 +292,7 @@ class FreeFlyerDynamicsFull(FreeFlyerDynamicsSimplified):
         return self.m_full
 
 class SpiralDynamics(FreeFlyerDynamicsSimplified):
-    def __init__(self, dt, spiral_params) -> None:
+    def __init__(self, dt, spiral_params, robot_params=None) -> None:
         """
         Class implementing the dynamics of the FreeFlyer w.r.t. the center point of the spiral.
         The simulator should never use this model, it is only used for the MPC. Instead, the
@@ -296,7 +303,7 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         self.b = spiral_params.b
         self.spiral_params = spiral_params
 
-        super().__init__(dt)
+        super().__init__(dt, robot_params)
 
         self.set_dynamics()
         self.name = "SpiralDynamics"
@@ -307,7 +314,7 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         Create a new object from an existing FreeFlyerDynamicsFull object.
         """
         spiral_params = SpiralParameters(ff_model)
-        new_spiral_model = cls(ff_model.dt, spiral_params)
+        new_spiral_model = cls(ff_model.dt, spiral_params, ff_model.robot_params)
         new_spiral_model.add_actuator_fault_from_fault_vector(ff_model.faulty_input_full, 
                                                               ff_model.u_ub_physical)
         return new_spiral_model

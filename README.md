@@ -43,12 +43,13 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 # ToDos
 
 **Now**
-- [ ] Check again with the bounds for the optimization in basic MPC!!!
+- [x] Check again with the bounds for the optimization in basic MPC!!!
 - [ ] Check terminal constraint in spiral linearizing MPC
 
 **Next steps**
 - [ ] Spiraling node
     - [ ] Terminal constraint
+- [ ] add config file for the robot
 - [ ] Implement eMPC spiraling
     - [ ] Necessary callers
     - [ ] Terminal constraint
@@ -80,7 +81,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 
 # Notes
 
-Install PlotJuggler:
+## Install PlotJuggler:
 ```
 sudo snap install plotjuggler
 sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
@@ -88,4 +89,9 @@ sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
 and run with
 ```
 ros2 run plotjuggler plotjuggler
+```
+
+## Simulationn parameters Gazebo
+```
+~/.gz/fuel/fuel.gazebosim.org/proque/models/kth_freeflyer/1/model.sdf
 ```

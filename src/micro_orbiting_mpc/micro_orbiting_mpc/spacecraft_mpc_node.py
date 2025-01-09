@@ -164,7 +164,15 @@ class SpacecraftMPCNode(Node):
         # Set class attributes using the actual values
         for param, value in actual_params.items():
             setattr(self, param, value)
-        
+
+        robot_parameter_defaults = {
+            "mass": 14.5, "inertia": 0.370, "max_force": 1.75, "thruster_distance_to_center": 0.14
+        }
+        self.robot_parameters = {}
+        for param in robot_parameter_defaults.keys():
+            self.declare_parameter(param, robot_parameter_defaults[param])
+            self.robot_parameters[param] = self.get_parameter(param).value
+
         self.declare_parameter('config_file', 'nominal_mpc.yaml')
         config_file = self.get_parameter('config_file').value
         self.tuning = read_ros_parameter_file(config_file, 'tuning')
@@ -198,7 +206,7 @@ class SpacecraftMPCNode(Node):
             case 'faultfree' | 'reactive' :
                 # faultfree:  Assumes nominal case without actuator failures, no way to react
                 # reactive: Assumes actuator failures can occur, but starts without any
-                self.model = FreeFlyerDynamicsFull(self.time_step)
+                self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
                 self.params = {
                     "horizon": self.horizon,
                     "uub": [1] * self.model.m, # as inputs are normalized
@@ -311,7 +319,7 @@ class SpacecraftMPCNode(Node):
         Returns SpiralDynamics model
         """
         # Actuator failures present from start, fb linearizing MPC controller
-        self.sim_model = FreeFlyerDynamicsFull(self.time_step)
+        self.sim_model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
 
         # Add actuator failures to the model
         for fault in self.actuator_failures:

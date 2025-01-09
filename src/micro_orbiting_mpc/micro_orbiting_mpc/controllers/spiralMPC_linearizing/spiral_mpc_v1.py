@@ -18,13 +18,12 @@ from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalT
 class SpiralMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
     DEFAULT_PARAMS["trajectory_tracking"] = True
-    DEFAULT_PARAMS["terminal_constraint"] = "from_file"
+    DEFAULT_PARAMS["terminal_constraint"] = "calculate"
 
     def __init__(self, model, params, ros_node, include_omega=True):
         self.include_omega = include_omega # Include omega in the optimization variables
 
         self.spiral_params = SpiralParameters(model)
-        print(params)
         self.terminal_incredients = TerminalIncredients(model, params["tuning"][params["param_set"]])
 
         super().__init__(model, params, ros_node)
@@ -149,8 +148,9 @@ class SpiralMPC(GenericMPC):
         # Terminal Cost
         e_N = x_t[0:self.Nopt] - x_r
 
-        # # Terminal Constraint
+        # Terminal Constraint
         if self.get_param("terminal_constraint") == "calculate":
+            print("Using calculate_terminal_constraint")
             obj += self.terminal_cost(e_N)
 
             terminal_constraint = self.terminal_incredients.calculate_terminal_set()
@@ -162,10 +162,11 @@ class SpiralMPC(GenericMPC):
             con_ineq_lb.append(-ca.inf)
             con_ineq_ub.append(alpha/3)
         elif self.get_param("terminal_constraint") == "point":
+            print("Using point_term_constraint")
             # Terminal constraint as single point
             con_eq.append(e_N)
         else:
-            ValueError("Invalid terminal constraint")
+            self.logger.error("Invalid terminal constraint")
 
         # Equality constraints are reformulated as inequality constraints with 0<=g(x)<=0
         # -> Refer to CasADi documentation: NLP solver only accepts inequality constraints
