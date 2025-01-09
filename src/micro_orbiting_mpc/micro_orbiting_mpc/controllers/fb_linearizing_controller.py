@@ -6,6 +6,7 @@ import warnings
 
 import cvxpy as cp
 
+from micro_orbiting_msgs.msg import ControllerValues
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
 from micro_orbiting_mpc.util.utils import Rot3, Rot3Inv, read_yaml_matrix, LogData
 from micro_orbiting_mpc.util.polytope import MyPolytope
@@ -13,7 +14,7 @@ from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
 
 class FBLinearizingController(ControllerBaseClass):
-    def __init__(self, model, ros_node):
+    def __init__(self, model, tuning, ros_node):
         super().__init__(ros_node)
         self.set_model(model)
 
@@ -35,6 +36,7 @@ class FBLinearizingController(ControllerBaseClass):
         self.trajectory_tracking=True
 
         self.Nt = 1
+        self.tuning = tuning
 
         A_lin = np.array([
             [0, 0, 1, 0, 0], # d c1/dt
@@ -50,8 +52,9 @@ class FBLinearizingController(ControllerBaseClass):
             [0, 1, 0],
             [0, 0, 1]
         ])
-        Q_lin = read_yaml_matrix("./controllers/tuning.yaml", "fb_lin_5", "P1", "Q_linfb")
-        R_lin = read_yaml_matrix("./controllers/tuning.yaml", "fb_lin_5", "P1", "R_linfb")
+
+        Q_lin = np.diag(self.tuning["Q_linfb"])
+        R_lin = np.diag(self.tuning["R_linfb"])
 
         self.A_lin = A_lin; self.B_lin = B_lin; self.Q_lin = Q_lin; self.R_lin = R_lin
 
@@ -123,11 +126,33 @@ class FBLinearizingController(ControllerBaseClass):
             raise NotImplementedError("Not implemented")
         else:
             self.data["f_nonconst"].add_data(t, self.Minv @ Rot3Inv(alpha) @ (Rot3(alpha) @ np.array([[0,f_e,0]]).T - self.K @ e))
+        
+        self.publish_last_controller_values(c0, e, F, e.T @ self.P @ e)
 
         # return resulting_input
         return self.ih.get_physical_input(F.flatten())
         # warnings.warn("Giving back the 3dim input")
         # return F.flatten()
+
+    def publish_last_controller_values(self, c, e, f, cost):
+        msg = ControllerValues()
+
+        msg.center_state_x = c[0].full().flatten().item()
+        msg.center_state_y = c[1].full().flatten().item()
+        msg.center_state_omega = c[4].full().flatten().item()
+        msg.center_state_vx = c[2].full().flatten().item()
+        msg.center_state_vy = c[3].full().flatten().item()
+
+        msg.center_error_x = e[0].item()
+        msg.center_error_y = e[1].item()
+        msg.center_error_omega = e[4].item()
+        msg.center_error_vx = e[2].item()
+        msg.center_error_vy = e[3].item()
+
+        msg.u = f.flatten().tolist()
+        msg.control_cost = cost.item()
+
+        self.controller_stats_pub.publish(msg)
 
     def get_next_trajectory_part(self, t):
         """
@@ -280,8 +305,6 @@ class FBLinearizingController(ControllerBaseClass):
             self.axs_planned_states[5].text(0.99, 0.99, "alpha", ha='right', va='top', transform=self.axs_planned_states[5].transAxes)
             self.fig_states.suptitle(f"Horizon: {self.Nt}")
 
-
-
     def plot_cost_estimate(self):
         term = TerminalIncredients(self.model)
 
@@ -293,8 +316,8 @@ class FBLinearizingController(ControllerBaseClass):
             term.calculate_terminal_cost()
         cost = term.load_terminal_cost()
 
-        Q_cost = read_yaml_matrix("./controllers/tuning.yaml", "spiraling_5", "P1", "Q")
-        R_cost = read_yaml_matrix("./controllers/tuning.yaml", "spiraling_5", "P1", "R")
+        Q_cost = np.diag(self.tuning["Q"])
+        R_cost = np.diag(self.tuning["R"])
 
         # calculate the terminal cost
         n_steps = self.data["c"].len()

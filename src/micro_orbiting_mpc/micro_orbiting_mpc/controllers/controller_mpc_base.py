@@ -86,9 +86,6 @@ class GenericMPC(ControllerBaseClass):
             self.fig, self.axs_planned_traj = plt.subplots(1,1)
             self.fig_states, self.axs_planned_states = plt.subplots(6,1)
 
-        # Publish ControllerValues messages. Publisher instantiated in the ROS node.
-        self.controller_stats_pub = self._ros_node.controller_stats_pub
-
     def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, slv_status):
         """
         Publish the last controller values to the ROS topic.

@@ -63,15 +63,16 @@ class FreeFlyerDynamicsSimplified:
 
         self.mass = 14.5
         self.J = 0.370
-        # self.max_force = 1.75
-        self.max_force = 1.4
+        self.max_force = 1.75
+        # self.max_force = 1.4
+        # self.max_force = 1.0
 
         self.u_lb_physical = np.zeros((self.m_full, 1))
         self.u_ub_physical = self.max_force * np.ones((self.m_full, 1))
 
         # distance of the thrusters to the center of mass
-        self.d = 0.12
-        # self.d = 0.14
+        # self.d = 0.12
+        self.d = 0.14
         d = self.d
 
         # Matrix to calculate resulting forces and torques from the thruster forces

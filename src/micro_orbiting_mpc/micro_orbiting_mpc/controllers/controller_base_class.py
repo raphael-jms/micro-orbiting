@@ -12,6 +12,9 @@ class ControllerBaseClass:
         self._ros_node = ros_node
         self.logger = self._ros_node.get_logger()
 
+        # Publish ControllerValues messages. Publisher instantiated in the ROS node.
+        self.controller_stats_pub = self._ros_node.controller_stats_pub
+
     def set_model(self, model):
         self.model = copy.deepcopy(model)
         self.dynamics = self.model.dynamics

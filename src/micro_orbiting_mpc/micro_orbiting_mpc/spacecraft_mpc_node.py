@@ -202,7 +202,7 @@ class SpacecraftMPCNode(Node):
                 self.params = {
                     "horizon": self.horizon,
                     "uub": [1] * self.model.m, # as inputs are normalized
-                    "ulb": [-1] * self.model.m,
+                    "ulb": [0] * self.model.m,
                     "tuning": self.tuning,
                     "param_set": self.param_set,
                     "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
@@ -210,18 +210,9 @@ class SpacecraftMPCNode(Node):
                 }
                 self.controller = GenericMPC(self.model, self.params, self)
             case 'spiralMPC_linearizing':
-                # Actuator failures present from start, fb linearizing MPC controller
-                self.sim_model = FreeFlyerDynamicsFull(self.time_step)
+                # initialize SpiralModel
+                self.model = self.initialize_damaged_spiral_model()
 
-                # Add actuator failures to the model
-                for fault in self.actuator_failures:
-                    self.sim_model.add_actuator_fault(fault["act_ids"], fault["intensity"])
-
-                # Used model is SpiralDynamics. With the creation of this models, the spiral
-                # parameters are already fixed. 
-                self.model = SpiralDynamics(self.time_step, SpiralParameters(self.sim_model))
-
-                print(self.tuning)
                 self.params = {
                     "horizon": self.horizon,
                     "tuning": self.tuning,
@@ -237,8 +228,9 @@ class SpacecraftMPCNode(Node):
                 }
                 self.controller = FancyMPC(self.model, self.params, self)
             case 'feedback_linearizing_controller':
-                self.model = DummyModel() # TODO: Replace with SpiralModel
-                self.controller = FBLinearizingController(self.model, self)
+                # initialize SpiralModel
+                self.model = self.initialize_damaged_spiral_model()
+                self.controller = FBLinearizingController(self.model, self.tuning[self.param_set], self)
             case 'dummy':
                 # Dummy controller for testing
                 self.model = DummyModel()
@@ -312,6 +304,22 @@ class SpacecraftMPCNode(Node):
             if self.controller.trajectory is not None:
                 return True
         return False
+
+    def initialize_damaged_spiral_model(self):
+        """
+        Initialize the model and controller for the damaged case
+        Returns SpiralDynamics model
+        """
+        # Actuator failures present from start, fb linearizing MPC controller
+        self.sim_model = FreeFlyerDynamicsFull(self.time_step)
+
+        # Add actuator failures to the model
+        for fault in self.actuator_failures:
+            self.sim_model.add_actuator_fault(fault["act_ids"], fault["intensity"])
+
+        # Used model is SpiralDynamics. With the creation of this models, the spiral
+        # parameters are already fixed. 
+        return SpiralDynamics.from_ff_model(self.sim_model)
 
     def actuator_failure_callback(self, request, response):
         """
@@ -521,13 +529,6 @@ class SpacecraftMPCNode(Node):
 
         self.setpoint_position = np.zeros_like(self.vehicle_local_position)
         error_position = self.vehicle_local_position - self.setpoint_position
-
-        # x0 = np.array([error_position[0],
-        #                 error_position[1],
-        #                 self.vehicle_local_velocity[0],
-        #                 self.vehicle_local_velocity[1],
-        #                 self.orientation_z,
-        #                 self.angular_velocity_z]).reshape(-1, 1)
 
         x0 = np.array([ 
                         error_position[0],

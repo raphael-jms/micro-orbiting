@@ -42,25 +42,41 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 
 # ToDos
 
+**Now**
 - [ ] Check again with the bounds for the optimization in basic MPC!!!
+- [ ] Check terminal constraint in spiral linearizing MPC
 
-- [ ] Check code for unnecessary lines / commented out stuff to be deleted / ...
-- [ ] Decide how to distribute: With or without database?
-- [ ] Generalization to 3D?
-- [ ] Later
-    - [ ] Rename classes (e.g. InputHandlerImproved to ControlAllocator, max_force to max_thrust)
+**Next steps**
+- [ ] Spiraling node
+    - [ ] Terminal constraint
+- [ ] Implement eMPC spiraling
+    - [ ] Necessary callers
+    - [ ] Terminal constraint
+    - [ ] Decide how to distribute: With or without database?
+- [ ] Not sure when: Add new arena to Gazebo simulation?
+- [ ] Implement reactive mode
+        → should probably be part of the controller classes?
+            → from the idea, it does not belong to ROS
+            → Not sure about the models etc.
 
-- [ ] Delete `sim_launch.py`? What exactly does it do?
-
-- [ ] Create a damage simulation node
-- [ ] Find a solution to the jump of the angle for the MPC
-
-- [ ] Add normalization of the error again?
+**Code clean up**
 - [ ] Remove option for `trajectory_tracking=False`
 - [ ] Decide what to do with alternative to `spiral_5` (linearizing Spiral MPC)
+- [ ] Check code for unnecessary lines / commented out stuff to be deleted / ...
+- [ ] Rename classes 
+        - InputHandlerImproved to ControlAllocator
+        - max_force to max_thrust
+        - incredient to ingredient
 
+**Other**
+- [ ] Delete `sim_launch.py`? What exactly does it do?
+- [ ] Add normalization of the error again?
+- [ ] Generalization to 3D?
 
+**Done**
 - [x] how to load trajectories?
+- [x] Create a damage simulation node
+- [x] Find a solution to the jump of the angle for the MPC
 
 # Notes
 

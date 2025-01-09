@@ -11,7 +11,7 @@ function r2te() {
 function r2thz() {
     ros2 topic hz $1
 }
-alias plotj='ros2 run plotjuggler plotjuggler'
+alias plotj='ros2 run plotjuggler plotjuggler -n'
 
 # Micro Orbiting MPC shortcuts
 function bot_hover() {

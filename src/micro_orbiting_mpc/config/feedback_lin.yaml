@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+    # MPC params
+    mode: "feedback_linearizing_controller"
+    time_step: 0.1
+    trajectory_tracking: true
+    param_set: "P1"
+    # Trajectory params
+    traj_shape: "hover"
+    traj_duration: 30
+    tuning:
+      P1:
+        Q: [5.0, 5.0, 0.2, 0.2, 100.0]
+        R: [1.0, 1.0, 1.0]
+        P_mult: 1.0
+        Q_linfb: [0.1, 0.1, 1.0, 1.0, 1.0]
+        R_linfb: [10.0, 10.0, 10.0]
+    actuator_failures: 
+      - act_ids: [3,1]
+        intensity: 1
+        start_time: 0
+      - act_ids: [4,1]
+        intensity: 1
+        start_time: 0
