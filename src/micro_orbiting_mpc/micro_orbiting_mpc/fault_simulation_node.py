@@ -8,6 +8,7 @@ from px4_msgs.msg import ActuatorMotors
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.util.utils import read_ros_parameter_file
 from micro_orbiting_msgs.srv import SetActuatorFailure
+from micro_orbiting_msgs.msg import FailedActuators
 
 class FaultInjectionNode(Node):
     """
@@ -62,9 +63,15 @@ class FaultInjectionNode(Node):
             qos_profile
         )
 
-        self.publisher = self.create_publisher(
+        self.full_control_publisher = self.create_publisher(
             ActuatorMotors,
             '/fmu/in/actuator_motors',
+            qos_profile
+        )
+
+        self.fault_publisher = self.create_publisher(
+            FailedActuators,
+            '/micro_orbiting/failed_actuators',
             qos_profile
         )
 
@@ -73,6 +80,18 @@ class FaultInjectionNode(Node):
             '/add_actuator_faults',
             self.add_fault_callback
         )
+
+        self.timer = self.create_timer(1.0, self.publish_actuator_faults_callback)
+
+    def publish_actuator_faults_callback(self):
+        """Publish the actuator faults."""
+        msg = FailedActuators()
+        for failed_actuator in self.model.failed_actuators:
+            msg.pos1.append(failed_actuator["pos_ids"][0])
+            msg.pos2.append(failed_actuator["pos_ids"][1])
+            msg.idx.append(failed_actuator["idx"])
+            msg.intensity.append(failed_actuator["intensity"])
+        self.fault_publisher.publish(msg)
 
     def apply_initial_faults(self):
         """Apply faults from the config file."""
@@ -102,7 +121,7 @@ class FaultInjectionNode(Node):
             output_msg.control[idx] = failed_actuator["intensity"]
 
         # Publish the modified control signal
-        self.publisher.publish(output_msg)
+        self.full_control_publisher.publish(output_msg)
 
     def add_fault_callback(self, request: SetActuatorFailure.Request, 
                           response: SetActuatorFailure.Response):

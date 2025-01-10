@@ -1,24 +1,37 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSHistoryPolicy
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Circle
 from collections import deque
 
-from micro_orbiting_msgs.msg import ControllerValues
+from micro_orbiting_msgs.msg import ControllerValues, FailedActuators
 
 class RealTimeVisualizer(Node):
+    """
+    Node to visualize the real-time state of the spacecraft and the controller inputs.
+    In contrast to gazebo, no physical visualization is provided, but an abstracted view enriched
+    with the current controller inputs and potentially the orbit center.
+    """
     def __init__(self):
         super().__init__('real_time_visualizer')
+
+        qos_profile = QoSProfile(
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
 
         # Visualization parameters
         self.robot_width = 0.6
         self.robot_height = 0.6
         self.force_scaler = 0.15
         self.plot_limits = [-5, 5, -5, 5]  # [xmin, xmax, ymin, ymax]
+        self.max_force = 1.75
         
         # Calculate number of points to store for path
         path_duration = 30.0  # seconds
@@ -29,7 +42,6 @@ class RealTimeVisualizer(Node):
         self.position = np.zeros(2)  # x1, y1
         self.orientation = 0.0  # alpha
         self.center_position = np.zeros(2)
-
 
         # Initialize path storage
         self.robot_path = deque(maxlen=self.path_points)
@@ -46,6 +58,13 @@ class RealTimeVisualizer(Node):
             '/px4_mpc/controller_values',
             self.controller_callback,
             10)
+
+        self.failed_forces_sub = self.create_subscription(
+            FailedActuators,
+            '/micro_orbiting/failed_actuators',
+            self.failed_forces_callback,
+            qos_profile
+        )
 
         # Set up the plot
         self.fig, self.ax = plt.subplots()
@@ -98,7 +117,7 @@ class RealTimeVisualizer(Node):
             [ val2, -val1,  1,  0],
             [-val2, -val1, -1,  0],
             [ val2,  val1,  1,  0],
-            [-val2,  val1,  1,  0],
+            [-val2,  val1, -1,  0],
             [ val1,  val2,  0,  1],
             [ val1, -val2,  0, -1],
             [-val1,  val2,  0,  1],
@@ -110,12 +129,26 @@ class RealTimeVisualizer(Node):
             arrow = self.ax.arrow(0, 0, 0, 0, 
                                 head_width=0.05, 
                                 head_length=0.1, 
-                                fc='red', 
-                                ec='red',
-                                alpha=0.5)
+                                fc='black', 
+                                ec='black',
+                                alpha=1.0)
             self.force_arrows.append(arrow)
 
         self.forces = np.zeros(8)  # Initialize forces array
+
+        # Create failed forces
+        self.failed_force_arrows = []
+
+        for _ in range(8):
+            arrow = self.ax.arrow(0, 0, 0, 0, 
+                                head_width=0.05, 
+                                head_length=0.1, 
+                                fc='red', 
+                                ec='red',
+                                alpha=1.0)
+            self.failed_force_arrows.append(arrow)
+
+        self.failed_actuator_forces = np.zeros(8)
 
         # Create timer for visualization updates
         self.update_timer = self.create_timer(0.05, self.update_plot)  # 20Hz update rate
@@ -129,6 +162,12 @@ class RealTimeVisualizer(Node):
         # Update paths
         self.robot_path.append(self.position)
         self.center_path.append(self.center_position)
+    
+    def failed_forces_callback(self, msg):
+        self.failed_actuator_forces = np.zeros(8)
+        for i in range(len(msg.idx)):
+            idx = msg.idx[i]
+            self.failed_actuator_forces[idx] = msg.intensity[i] * self.max_force
 
     def update_plot(self):
         # Calculate rotated offsets for rectangle position
@@ -165,33 +204,8 @@ class RealTimeVisualizer(Node):
         )
 
         # Update force arrows
-        for i in range(8):
-            if abs(self.forces[i]) < 1e-6:
-                self.force_arrows[i].set_alpha(0.0)
-                continue
-            else:
-                self.force_arrows[i].set_alpha(1.0)
-
-            # Get local positions
-            local_pos = self.pos_orient[i]
-            force_magnitude = self.forces[i] * self.force_scaler  # Scale factor for visualization
-            
-            # Calculate start and end points
-            end_point = np.array([local_pos[0], local_pos[1]])
-            direction = np.array([local_pos[2], local_pos[3]])
-            start_point = end_point + direction * force_magnitude
-
-            # Transform to global coordinates
-            start_global = self.position + R @ start_point
-            end_global = self.position + R @ end_point
-
-            # Update arrow
-            dx = end_global[0] - start_global[0]
-            dy = end_global[1] - start_global[1]
-            self.force_arrows[i].set_data(x=start_global[0], 
-                                        y=start_global[1],
-                                        dx=dx, 
-                                        dy=dy)
+        self.force_arrows = self.update_forces(self.forces, self.force_arrows, R)
+        self.failed_force_arrows = self.update_forces(self.failed_actuator_forces, self.failed_force_arrows, R)
 
         # Update paths
         robot_path_array = np.array(self.robot_path)
@@ -209,6 +223,36 @@ class RealTimeVisualizer(Node):
         # Trigger redraw
         self.fig.canvas.draw_idle()
         self.fig.canvas.flush_events()
+
+    def update_forces(self, forces, force_arrows, R):
+        for i in range(8):
+            if abs(forces[i]) < 1e-6:
+                force_arrows[i].set_alpha(0.0)
+                continue
+            else:
+                force_arrows[i].set_alpha(1.0)
+
+            # Get local positions
+            local_pos = self.pos_orient[i]
+            force_magnitude = forces[i] * self.force_scaler  # Scale factor for visualization
+            
+            # Calculate start and end points
+            end_point = np.array([local_pos[0], local_pos[1]])
+            direction = np.array([local_pos[2], local_pos[3]])
+            start_point = end_point + direction * force_magnitude
+
+            # Transform to global coordinates
+            start_global = self.position + R @ start_point
+            end_global = self.position + R @ end_point
+
+            # Update arrow
+            dx = end_global[0] - start_global[0]
+            dy = end_global[1] - start_global[1]
+            force_arrows[i].set_data(x=start_global[0], 
+                                        y=start_global[1],
+                                        dx=dx, 
+                                        dy=dy)
+        return force_arrows
 
 def main(args=None):
     rclpy.init(args=args)
