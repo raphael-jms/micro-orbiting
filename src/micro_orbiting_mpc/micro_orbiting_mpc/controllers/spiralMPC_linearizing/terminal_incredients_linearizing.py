@@ -2,55 +2,62 @@ import numpy as np
 import sympy as sp
 import time
 import scipy.linalg as la
+import scipy.signal
 import math
 import cvxpy as cp
 import casadi as ca
-from ament_index_python.packages import get_package_share_directory
-import os
 
-from micro_orbiting_mpc.controllers.spiralMPC_linearizing.parse_sympy import python_code_from_sympy
 from micro_orbiting_mpc.util.utils import read_yaml_matrix, EllipticalTerminalConstraint
 from micro_orbiting_mpc.util.get_example import get_faulty_ff_spiral
-from micro_orbiting_mpc.controllers.cost_function import get_cost_function
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
 
 class TerminalIncredients:
-    def __init__(self, model, tuning): # TODO delete this? failure_case="spiraling_5", 
-        """
-        Calculate the terminal incredients (terminal cost and constraints) for the feedback-
-        linearized system.
+    def __init__(self, model, params):
+        self.model = model
+        self.params = params
 
-        ATTENTION: state variables are in order
-        state: [c1, c2, alpha c3, c4, omega]
-            c1, c2 are the positions of the orbit center in x and y in global carthesian coords
-            c3, c4 are the corresponding velocities
-        This is due to (stupid) constraints of sympy. BUT: The load_terminal_cost function will
-        return the correct order of [c1, c2, c3, c4, omega, alpha].
+    def get_termimal_cost(self):
+        """
+        The result will never be exactly the same if I once calculate in discrete and once in continuous time!
+        Here discrete, is (maybe?) the more accurate thing to do
         """
         self.model = model
+
+        self.Q = np.diag(self.params["Q"])
+        self.R = np.diag(self.params["R"])
+
+        self.Q_lin = np.diag(self.params["Q_linfb"])
+        self.R_lin = np.diag(self.params["R_linfb"])
+
+        self.r = model.spiral_params.r
+        self.omega_theta = model.spiral_params.omega_theta
+
         # The feedback-linearized system
-        self.A_lin = np.array([
+        A_lin_cont = np.array([
             [0, 0, 1, 0, 0], # d c1/dt
             [0, 0, 0, 1, 0], # d c2/dt
             [0, 0, 0, 0, 0], # d c3/dt
             [0, 0, 0, 0, 0], # d c4/dt
             [0, 0, 0, 0, 0]  # d omega/dt
         ])
-        self.B_lin = np.array([
+        B_lin_cont = np.array([
             [0, 0, 0],
             [0, 0, 0],
             [1, 0, 0],
             [0, 1, 0],
             [0, 0, 1]
         ])
+        C_lin_cont = np.eye(5)
+        D_lin_cont = np.zeros((5,3))
 
-        # Parametrized spiral parameters
-        self.r = sp.symbols('r', real=True, positive=True)
-        self.omega_theta = sp.symbols('omega_theta', real=True)
+        # print(scipy.signal.cont2discrete((A_lin_cont, B_lin_cont, C_lin_cont, D_lin_cont), self.model.dt))
+        # res = scipy.signal.cont2discrete((A_lin_cont, B_lin_cont, C_lin_cont, D_lin_cont), self.model.dt)
+        # print(res)
+        [self.A_lin, self.B_lin, self.C_lin, self.D_lin, dt] = scipy.signal.cont2discrete((A_lin_cont, B_lin_cont, C_lin_cont, D_lin_cont), self.model.dt)
 
         # Other parameters
-        self.mass = model.mass
-        self.J = model.J
+        self.mass = self.model.mass
+        self.J = self.model.J
 
         self.M = np.array([
             [1/self.mass, 0, -self.r/self.J],
@@ -58,69 +65,48 @@ class TerminalIncredients:
             [0, 0, 1/self.J]
         ])
         self.Minv = np.array([[self.mass, 0, self.r*self.mass],
-                              [0, self.mass, 0],
-                              [0, 0, self.J]])
+                         [0, self.mass, 0],
+                         [0, 0, self.J]])
 
-        # The cost matrices for the function used in the MPC; Used to calculate terminal cost
-        self.Q = np.diag(tuning["Q"])
-        self.R = np.diag(tuning["R"])
+        self.K_lin_fb, P_lin_fb = self.get_linearized_feedback(self.A_lin, self.B_lin, self.Q_lin, self.R_lin)
+        self.k_omega = self.K_lin_fb[-1, -1].item()
 
-        print(f"Q = {self.Q}")
-        print(f"R = {self.R}")
+        # calculate P_Q
+        self.A_K = self.A_lin - self.B_lin @ self.K_lin_fb
+        self.P_Q = la.solve_discrete_lyapunov(self.A_K, self.Q)
 
-        # Used to derive a controller for the terminal region
-        Q_lin = np.diag(tuning["Q_linfb"])
-        R_lin = np.diag(tuning["R_linfb"])
-        self.K, self.P = self.get_linearized_feedback(self.A_lin, self.B_lin, Q_lin, R_lin)
+        # calculate abs(Q_u)
+        self.abs_Q_u = np.linalg.norm(self.Minv.T @ self.R @ self.Minv, ord=2)
 
-        self.A_lin_cl = self.A_lin - self.B_lin @ self.K
+        # calculate P_K
+        self.P_K = la.solve_discrete_lyapunov(self.A_K, self.K_lin_fb.T @ self.K_lin_fb)
 
-    def calculate_terminal_cost(self):
-        calculation_time = time.time()
-        print("Calculating terminal cost...")
+        # calculate gains
+        gains = [
+            (2*self.r*self.omega_theta) ** 2 / (1 - (1-self.k_omega)**2),
+            4*self.r*self.omega_theta / (1 - (1-self.k_omega)**3),
+            self.r**2 / (1 - (1-self.k_omega)**4),
+        ]
+        self.gains = gains
 
-        r = self.r
-        omega_theta = self.omega_theta
+        def cost_fcn(e0):
+            e0 = e0[0:5] # strip potential alpha
 
-        t = sp.symbols('t', real=True)
-        A_cl = sp.Matrix(self.A_lin_cl)
-        mex = sp.simplify(sp.exp(A_cl * t)) # Matrix exponential, x(t) = mex * x(0)
-        self.mex = sp.lambdify((t), mex)
-        print(f"Calculation time matrix exponential: {time.time() - calculation_time} seconds")
-        
-        # Parametrized x(0)
-        c0_1, c0_2, c0_3, c0_4, c0_5 = sp.symbols('c0_1 c0_2 c0_3 c0_4 c0_5')
-        x0 = sp.Matrix([[c0_1, c0_2, c0_3, c0_4, c0_5]]).T 
+            e0_5 = e0[4]
+            return e0.T @ self.P_Q @ e0 + 2 * self.abs_Q_u * \
+                (e0.T @ self.P_K @ e0 + gains[0]*e0_5**2 + gains[1]*e0_5**3 + gains[2]*e0_5**4)
 
-        err_omega = sp.Matrix([[0,0,0,0,1]]) * mex * x0
-        err_omega = err_omega[0, 0] # convert 1x1 matrix to scalar
+        # return a function that can be called
+        return cost_fcn
 
-        integration_bounds = (t, 0, sp.S.Infinity)
+    def get_linearized_feedback(self, A, B, Qx, Qu):
+        # P_lin_fb = la.solve_continuous_are(A, B, Qx, Qu)
+        P_lin_fb = la.solve_discrete_are(A, B, Qx, Qu)
 
-        # Quadratic part
-        Pu_factor = self.matrix_2_norm(sp.Matrix(self.Minv.T @ self.R @ self.Minv))
-        print(f"Calculation time Pu_factor: {time.time() - calculation_time} seconds")
+        K = la.inv(Qu) @ (B.T) @ P_lin_fb
+        K[np.abs(K)<0.00001] = 0
 
-        self.quadr_cost_x = sp.integrate(mex.T * self.Q  * mex, integration_bounds)
-        print(f"Calculation time terminal cost (first quadratic part): {time.time() - calculation_time} seconds")
-        self.quadr_cost_u = sp.integrate(mex.T * self.K.T @ self.K  * mex, integration_bounds)
-        print(f"Calculation time terminal cost (second quadratic part): {time.time() - calculation_time} seconds")
-
-        # Nonlinear part
-        f_e = err_omega*r*(err_omega + 2*omega_theta)
-        self.nonlin_cost = sp.integrate(f_e**2, integration_bounds)
-        self.cost_u = 2 * Pu_factor * (x0.T @ self.quadr_cost_u @ x0 + sp.Matrix([self.nonlin_cost]))
-
-        # Save for debugging
-        self.cost_x_quadr = sp.lambdify((c0_1, c0_2, c0_3, c0_4, c0_5, r, omega_theta), self.quadr_cost_x)
-        self.cost_u_quadr = sp.lambdify((c0_1, c0_2, c0_3, c0_4, c0_5, r, omega_theta), self.quadr_cost_u)
-        self.cost_nonlin_u = sp.lambdify((c0_1, c0_2, c0_3, c0_4, c0_5, r, omega_theta), self.nonlin_cost)
-        self.cost_Pu_fact = sp.lambdify((r, omega_theta), Pu_factor)
-
-        # Lambdifify the cost function
-        self.P = (x0.T * self.quadr_cost_x * x0)[0,0] + 2 * Pu_factor * (self.nonlin_cost + (x0.T * self.quadr_cost_u * x0)[0,0])
-        self.P_function = sp.lambdify((c0_1, c0_2, c0_3, c0_4, c0_5, r, omega_theta), self.P)
-        print(f"Overall calculation time terminal cost: {time.time() - calculation_time} seconds")
+        return K, P_lin_fb
 
     def calculate_terminal_set(self, trajectory=None):
         input_bounds = InputBounds(self.model)
@@ -133,7 +119,9 @@ class TerminalIncredients:
 
         def get_s_procedure_constraint(F1, g1, h1, F2, g2, h2, lam):
             """
+            Formulate
             x^T F1 x + 2 g1 x + h1 <= 0    ==>    x^T F2 x + 2 g2 x + h2 <= 0
+            as a definiteness constraint
             """
             dimX = max(F1.shape[1], F2.shape[1])
             F1 = np.zeros((dimX, dimX)) if F1 is None else F1
@@ -204,139 +192,8 @@ class TerminalIncredients:
         terminal_set = EllipticalTerminalConstraint(prob.value, self.P)
         # print(f"Terminal set: {terminal_set}")
         return terminal_set
-
-    def get_path_of_cached_cost(self):
-        package_name = "micro_orbiting_mpc"
-        module_name = "cost_function_spiral_mpc_linearizing"
-        cache_dir = os.path.join(get_package_share_directory(package_name), 'cache')
-        module_path = os.path.join(cache_dir, f"{module_name}.py")
-        return module_path
     
-    def calculate_terminal_cost_new(self):
-        module_path = self.get_path_of_cached_cost()
-        self.calculate_terminal_cost()
-        self.create_python_code_P(module_path)
-
-    def load_terminal_cost_new(self):
-        """
-        Loads the terminal cost function from a cached file. See the file at
-        /opt/ros/<ros_distro>/share/<package_name>/cache
-        """
-        module_path = self.get_path_of_cached_cost()
-
-        if not os.path.exists(module_path):
-            # No cached version avaliable: create one
-            self.create_python_code_P(module_path)
-
-        # Load the module
-        with open(module_path, 'r') as f:
-            code = f.read()
-    
-        namespace = {}
-        exec(code, namespace)
-        get_cost_fcn = namespace.get("get_cost_function")
-
-        cost_fcn = get_cost_fcn(self.model.spiral_params.r, self.model.spiral_params.omega_theta)
-
-        def correctly_sorted_cost_fcn(c):
-            # c: [c1, c2, c3, c4, omega, alpha]
-            return cost_fcn(c[0:5])
-        
-        return correctly_sorted_cost_fcn
-
-    def load_terminal_cost(self):
-        cost_fcn = get_cost_function(self.model.spiral_params.r, 
-                                 self.model.spiral_params.omega_theta)
-        def correctly_sorted_cost_fcn(c):
-            # c: [c1, c2, c3, c4, omega, alpha]
-            return cost_fcn(c[0:5])
-        
-        return correctly_sorted_cost_fcn
-
-    def matrix_2_norm(self, A):
-        """
-        2 norm for symbolic matrices.
-        """
-        # use '*' to unpack the list
-        return sp.Max( *(A.singular_values()) )
-
-    def get_linearized_feedback(self, A, B, Qx=None, Qu=None):
-        # penalize alpha a lot → staying within close reagion for alpha <=> bigger region for rest
-        # Penalize control input a lot → Bigger resulting region with possible control input
-        if Qx is None:
-            Qx = np.diag([1,1,100,1,1,1])
-        if Qu is None:
-            Qu = np.diag([1,1,1]) * 10
-
-        P_lin_fb = la.solve_continuous_are(A, B, Qx, Qu)
-        K = la.inv(Qu) @ (B.T) @ P_lin_fb
-
-        K[np.abs(K)<0.00001] = 0
-
-        return K, P_lin_fb
-
-    def create_python_code_P(self, code_file="./controllers/cost_function.py"):
-        """
-        Get the python code of the terminal cost.
-        """
-        var_tuple = "(c0_1, c0_2, c0_3, c0_4, c0_5)"
-        return python_code_from_sympy(self.nonlin_cost, self.quadr_cost_x, var_tuple, code_file)
-
-def create_cost_function(model, tuning_file="./controllers/tuning.yaml", 
-                        failure_case="spiraling_5", param_set="P1",
-                        code_destination="./controllers/cost_function.py"):
-    """
-    All-in-one function to create the cost function.
-    """
-    ti = TerminalIncredients(model, tuning_file, failure_case, param_set)
-    ti.calculate_terminal_cost()
-    ti.create_python_code_P(code_destination)
-
 if __name__ == "__main__":
     model = get_faulty_ff_spiral()
-    # create_cost_function(model)
-    r = model.spiral_params.r
-    omega_theta = model.spiral_params.omega_theta
-
     term = TerminalIncredients(model)
-    term.calculate_terminal_set()
-    # term.calculate_terminal_cost()
-    # term.create_python_code_P("./controllers/cost_function.py")
-
-    # for i in range(20):
-    #     c = np.random.rand(5)
-
-    #     loaded_fcn = term.load_terminal_cost()
-    #     print(f"Difference cost fcn from file and directly: {loaded_fcn(c) - term.P_function(*c, r, omega_theta)}")
-
-
-    # ellipse = term.calculate_terminal_set(model.spiral_params)
-    # print(ellipse)
-
-
-"""
-Instead of labdifying the function, the intermediate output (that would later be used in
-lambdify) can be used. This allows to get the python code of the function.
-
-Attention: The printer does not convert everything to non-sympy code. This might not work 
-for all cases! But: there might be work-arounds. In this case, the assumption 'r and om_theta 
-are real' were necessary: Otherwise, the code would have contained a conjugate function. Also,
-the ti.P[0,0] is needed to convert the matrix to a scalar; otherwise the code would have
-contained a 'DenseMatrix' object.
-
-https://stackoverflow.com/questions/27304590/generate-python-code-from-a-sympy-expression
-https://docs.sympy.org/latest/modules/printing.html#module-sympy.printing.lambdarepr
-# python_code = sp.printing.lambdarepr.lambdarepr(ti.P[0,0])
-# # Add text to make the code a python function
-# python_code = f"def cost_function(c0_1, c0_2, c0_3, c0_4, c0_5, c0_6, r, omega_theta):\n    return {python_code}"
-# python_code = f"# Eigenvalues of closed loop: {ti.des_eigvals}\n\nfrom math import sqrt\n" + python_code
-# # The code may become to long for one line. Therefore, split it into multiple expressions that
-# # are then added
-
-# var_tuple = (self.c0_1, self.c0_2, self.c0_3, self.c0_4, self.c0_5, self.c0_6, self.r,\
-#               self.omega_theta)
-# return python_code_from_sympy(self.P[0,0], var_tuple, code_file)
-
-# var_tuple = "(c0_1, c0_2, c0_3, c0_4, c0_5, c0_6, r, omega_theta)"
-# return python_code_from_sympy(self.P[0,0], var_tuple, code_file)
-"""
+    breakpoint()

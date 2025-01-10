@@ -10,7 +10,7 @@ import os
 
 from micro_orbiting_msgs.msg import ControllerValues
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
-from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients, create_cost_function
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 from micro_orbiting_mpc.util.terminal_constraints import PolytopicTerminalConstraint
@@ -34,18 +34,7 @@ class SpiralMPC(GenericMPC):
     def set_cost_functions(self):
         # For running cost, the code from the parent class is used
         super().set_cost_functions()
-
-        # The terminal cost is different for the spiraling case; overwrite it
-        cached_version_exists = 1
-        if  not(cached_version_exists) or \
-                self.tuning[self.param_set]["recalculate_terminal_ingredients"]:
-            # Calculate terminal cost
-            self.terminal_incredients.calculate_terminal_cost()
-            # Save results
-
-            self.terminal_cost = 
-        else:
-            self.terminal_cost = self.terminal_incredients.load_terminal_cost()
+        self.terminal_cost = self.terminal_incredients.get_termimal_cost()
 
     def build_solver(self):
         """
@@ -171,7 +160,8 @@ class SpiralMPC(GenericMPC):
             alpha = terminal_constraint.alpha
             con_ineq.append(ca.mtimes(ca.mtimes(e_N.T, P), e_N))
             con_ineq_lb.append(-ca.inf)
-            con_ineq_ub.append(alpha/3)
+            # con_ineq_ub.append(alpha/3)
+            con_ineq_ub.append(alpha)
         elif self.get_param("terminal_constraint") == "point":
             print("Using point_term_constraint")
             # Terminal constraint as single point
