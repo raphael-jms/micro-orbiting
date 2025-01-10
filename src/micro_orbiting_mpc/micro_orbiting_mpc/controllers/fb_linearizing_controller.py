@@ -127,14 +127,14 @@ class FBLinearizingController(ControllerBaseClass):
         else:
             self.data["f_nonconst"].add_data(t, self.Minv @ Rot3Inv(alpha) @ (Rot3(alpha) @ np.array([[0,f_e,0]]).T - self.K @ e))
         
-        self.publish_last_controller_values(c0, e, F, e.T @ self.P @ e)
+        self.publish_last_controller_values(c0, e, F, e.T @ self.P @ e, x0)
 
         # return resulting_input
         return self.ih.get_physical_input(F.flatten())
         # warnings.warn("Giving back the 3dim input")
         # return F.flatten()
 
-    def publish_last_controller_values(self, c, e, f, cost):
+    def publish_last_controller_values(self, c, e, f, cost, x):
         msg = ControllerValues()
 
         msg.center_state_x = c[0].full().flatten().item()
@@ -148,6 +148,13 @@ class FBLinearizingController(ControllerBaseClass):
         msg.center_error_omega = e[4].item()
         msg.center_error_vx = e[2].item()
         msg.center_error_vy = e[3].item()
+
+        msg.x1 = x[0].flatten().item()
+        msg.y1 = x[1].flatten().item()
+        msg.alpha = x[2].flatten().item()
+        msg.x2 = x[3].flatten().item()
+        msg.y2 = x[4].flatten().item()
+        msg.omega = x[5].flatten().item()
 
         msg.u = f.flatten().tolist()
         msg.control_cost = cost.item()
