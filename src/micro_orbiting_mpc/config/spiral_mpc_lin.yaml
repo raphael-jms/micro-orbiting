@@ -20,6 +20,7 @@
         # poles: [-1, -1.25, -1.5, -1.75, -0.5, -0.75] # poles for the feedback-linearized system
         Q_linfb: [1, 1, 1, 1, 1]
         R_linfb: [10, 10, 10]
+        recalculate_terminal_ingredients: false
       P2:
         Q: [5.0, 5.0, 0.2, 0.2, 0.1]
         R: [100.0, 100.0, 100.0]

@@ -33,6 +33,8 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - ulb: input lower bounds (list of [x, y])
 - xub: state upper bounds (list of [x, y])
 - xlb: state lower bounds (list of [x, y])
+- For case spiralMPC_linearizing: 
+    - recalculate_terminal_ingredients: True/False; otherwise last calculation is loaded from file
 
 ### Trajectory params
 - traj_shape: generate_point_stabilizing, generate_sin, generate_line, generate_polynomial, generate_circle
@@ -43,8 +45,10 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 # ToDos
 
 **Now**
-- [x] Check again with the bounds for the optimization in basic MPC!!!
 - [ ] Check terminal constraint in spiral linearizing MPC
+- [ ] Check proof for derivation of spiraling MPC!!! 
+        - see comment in terminal_incredients_linearizing!!!
+        - Why do I have `alpha/3` in spiral_mpc_1, build_solver???
 
 **Next steps**
 - [ ] Spiraling node
@@ -78,6 +82,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [x] how to load trajectories?
 - [x] Create a damage simulation node
 - [x] Find a solution to the jump of the angle for the MPC
+- [x] Check again with the bounds for the optimization in basic MPC!!!
 
 # Notes
 

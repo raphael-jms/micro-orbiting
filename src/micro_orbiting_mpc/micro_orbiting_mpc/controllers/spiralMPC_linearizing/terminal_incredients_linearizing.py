@@ -5,6 +5,8 @@ import scipy.linalg as la
 import math
 import cvxpy as cp
 import casadi as ca
+from ament_index_python.packages import get_package_share_directory
+import os
 
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.parse_sympy import python_code_from_sympy
 from micro_orbiting_mpc.util.utils import read_yaml_matrix, EllipticalTerminalConstraint
@@ -202,6 +204,45 @@ class TerminalIncredients:
         terminal_set = EllipticalTerminalConstraint(prob.value, self.P)
         # print(f"Terminal set: {terminal_set}")
         return terminal_set
+
+    def get_path_of_cached_cost(self):
+        package_name = "micro_orbiting_mpc"
+        module_name = "cost_function_spiral_mpc_linearizing"
+        cache_dir = os.path.join(get_package_share_directory(package_name), 'cache')
+        module_path = os.path.join(cache_dir, f"{module_name}.py")
+        return module_path
+    
+    def calculate_terminal_cost_new(self):
+        module_path = self.get_path_of_cached_cost()
+        self.calculate_terminal_cost()
+        self.create_python_code_P(module_path)
+
+    def load_terminal_cost_new(self):
+        """
+        Loads the terminal cost function from a cached file. See the file at
+        /opt/ros/<ros_distro>/share/<package_name>/cache
+        """
+        module_path = self.get_path_of_cached_cost()
+
+        if not os.path.exists(module_path):
+            # No cached version avaliable: create one
+            self.create_python_code_P(module_path)
+
+        # Load the module
+        with open(module_path, 'r') as f:
+            code = f.read()
+    
+        namespace = {}
+        exec(code, namespace)
+        get_cost_fcn = namespace.get("get_cost_function")
+
+        cost_fcn = get_cost_fcn(self.model.spiral_params.r, self.model.spiral_params.omega_theta)
+
+        def correctly_sorted_cost_fcn(c):
+            # c: [c1, c2, c3, c4, omega, alpha]
+            return cost_fcn(c[0:5])
+        
+        return correctly_sorted_cost_fcn
 
     def load_terminal_cost(self):
         cost_fcn = get_cost_function(self.model.spiral_params.r, 

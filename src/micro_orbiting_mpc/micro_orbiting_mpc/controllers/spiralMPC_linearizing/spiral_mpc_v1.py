@@ -5,10 +5,12 @@ import time
 import matplotlib.pyplot as plt
 import warnings
 import time
+from ament_index_python.packages import get_package_share_directory
+import os
 
 from micro_orbiting_msgs.msg import ControllerValues
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
-from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients
+from micro_orbiting_mpc.controllers.spiralMPC_linearizing.terminal_incredients_linearizing import TerminalIncredients, create_cost_function
 from micro_orbiting_mpc.controllers.controller_base_class import ControllerBaseClass
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 from micro_orbiting_mpc.util.terminal_constraints import PolytopicTerminalConstraint
@@ -18,7 +20,8 @@ from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, EllipticalT
 class SpiralMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
     DEFAULT_PARAMS["trajectory_tracking"] = True
-    DEFAULT_PARAMS["terminal_constraint"] = "calculate"
+    DEFAULT_PARAMS["terminal_constraint"] = "set"
+    DEFAULT_PARAMS["recalculate_terminal_set"] = False
 
     def __init__(self, model, params, ros_node, include_omega=True):
         self.include_omega = include_omega # Include omega in the optimization variables
@@ -33,7 +36,16 @@ class SpiralMPC(GenericMPC):
         super().set_cost_functions()
 
         # The terminal cost is different for the spiraling case; overwrite it
-        self.terminal_cost = self.terminal_incredients.load_terminal_cost()
+        cached_version_exists = 1
+        if  not(cached_version_exists) or \
+                self.tuning[self.param_set]["recalculate_terminal_ingredients"]:
+            # Calculate terminal cost
+            self.terminal_incredients.calculate_terminal_cost()
+            # Save results
+
+            self.terminal_cost = 
+        else:
+            self.terminal_cost = self.terminal_incredients.load_terminal_cost()
 
     def build_solver(self):
         """
@@ -149,8 +161,7 @@ class SpiralMPC(GenericMPC):
         e_N = x_t[0:self.Nopt] - x_r
 
         # Terminal Constraint
-        if self.get_param("terminal_constraint") == "calculate":
-            print("Using calculate_terminal_constraint")
+        if self.get_param("terminal_constraint") == "set":
             obj += self.terminal_cost(e_N)
 
             terminal_constraint = self.terminal_incredients.calculate_terminal_set()

@@ -220,11 +220,13 @@ class SpacecraftMPCNode(Node):
             case 'spiralMPC_linearizing':
                 # initialize SpiralModel
                 self.model = self.initialize_damaged_spiral_model()
+                self.declare_parameter("recalculate_terminal_set", False)
 
                 self.params = {
                     "horizon": self.horizon,
                     "tuning": self.tuning,
-                    "param_set": self.param_set
+                    "param_set": self.param_set,
+                    "recalculate_terminal_set": self.get_parameter("recalculate_terminal_set").value
                 }
 
                 self.controller = SpiralMPC(self.model, self.params, self)
