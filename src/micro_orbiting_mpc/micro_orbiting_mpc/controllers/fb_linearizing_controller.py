@@ -2,8 +2,6 @@ import numpy as np
 import scipy.linalg as la
 import math
 import matplotlib.pyplot as plt
-import warnings
-
 import cvxpy as cp
 
 from micro_orbiting_msgs.msg import ControllerValues

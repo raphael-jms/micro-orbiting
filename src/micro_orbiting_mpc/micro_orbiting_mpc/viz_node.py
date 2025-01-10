@@ -96,8 +96,9 @@ class RealTimeVisualizer(Node):
         # Create center point
         self.center_point = Circle(
             (0, 0),
-            radius=0.1,
+            radius=0.075,
             color='red',
+            alpha=0.5,
             fill=True
         )
         self.ax.add_patch(self.center_point)
@@ -237,9 +238,9 @@ class RealTimeVisualizer(Node):
             force_magnitude = forces[i] * self.force_scaler  # Scale factor for visualization
             
             # Calculate start and end points
-            end_point = np.array([local_pos[0], local_pos[1]])
+            start_point = np.array([local_pos[0], local_pos[1]])
             direction = np.array([local_pos[2], local_pos[3]])
-            start_point = end_point + direction * force_magnitude
+            end_point = start_point + direction * force_magnitude
 
             # Transform to global coordinates
             start_global = self.position + R @ start_point

@@ -35,6 +35,18 @@ class FaultInjectionNode(Node):
             depth=1
         )
 
+        # Mapping between internal and gazebo indices
+        self.idx_intern2gazebo = {
+            0: 2,
+            1: 3,
+            2: 0,
+            3: 1,
+            4: 5,
+            5: 4,
+            6: 7,
+            7: 6
+        }
+
         # Initialize the model
         self.declare_parameter('time_step', 0.01)
         self.time_step = self.get_parameter('time_step').value
@@ -117,8 +129,9 @@ class FaultInjectionNode(Node):
 
         # Apply faults for failed actuators
         for failed_actuator in self.model.failed_actuators:
-            idx = failed_actuator["idx"]
-            output_msg.control[idx] = failed_actuator["intensity"]
+            int_idx = failed_actuator["idx"]
+            gaz_idx = self.idx_intern2gazebo[int_idx]
+            output_msg.control[gaz_idx] = failed_actuator["intensity"]
 
         # Publish the modified control signal
         self.full_control_publisher.publish(output_msg)
