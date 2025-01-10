@@ -5,7 +5,8 @@ from rclpy.qos import QoSProfile
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Circle
+from collections import deque
 
 from micro_orbiting_msgs.msg import ControllerValues
 
@@ -16,11 +17,28 @@ class RealTimeVisualizer(Node):
         # Visualization parameters
         self.robot_width = 0.6
         self.robot_height = 0.6
+        self.force_scaler = 0.15
         self.plot_limits = [-5, 5, -5, 5]  # [xmin, xmax, ymin, ymax]
         
+        # Calculate number of points to store for path
+        path_duration = 30.0  # seconds
+        update_rate = 0.1    # seconds (20Hz)
+        self.path_points = int(path_duration / update_rate)
+
         # Initialize state variables
         self.position = np.zeros(2)  # x1, y1
         self.orientation = 0.0  # alpha
+        self.center_position = np.zeros(2)
+
+
+        # Initialize path storage
+        self.robot_path = deque(maxlen=self.path_points)
+        self.center_path = deque(maxlen=self.path_points)
+        
+        # Pre-fill paths with initial positions
+        for _ in range(self.path_points):
+            self.robot_path.append(np.zeros(2))
+            self.center_path.append(np.zeros(2))
 
         # Create subscription
         self.controller_sub = self.create_subscription(
@@ -56,12 +74,61 @@ class RealTimeVisualizer(Node):
             ec='blue'
         )
 
+        # Create center point
+        self.center_point = Circle(
+            (0, 0),
+            radius=0.1,
+            color='red',
+            fill=True
+        )
+        self.ax.add_patch(self.center_point)
+
+        # Create connection line
+        self.connection_line, = self.ax.plot([], [], '--', color='gray')
+
+        # Create path lines
+        self.robot_path_line, = self.ax.plot([], [], '-', color='blue', alpha=0.5)
+        self.center_path_line, = self.ax.plot([], [], '-', color='red', alpha=0.5)
+
+        # Force visualization parameters
+        self.force_arrows = []
+        val1 = 0.6 * self.robot_width/2
+        val2 = self.robot_width/2
+        self.pos_orient = np.array([
+            [ val2, -val1,  1,  0],
+            [-val2, -val1, -1,  0],
+            [ val2,  val1,  1,  0],
+            [-val2,  val1,  1,  0],
+            [ val1,  val2,  0,  1],
+            [ val1, -val2,  0, -1],
+            [-val1,  val2,  0,  1],
+            [-val1, -val2,  0, -1],
+        ])
+
+        # Create force arrows
+        for _ in range(8):
+            arrow = self.ax.arrow(0, 0, 0, 0, 
+                                head_width=0.05, 
+                                head_length=0.1, 
+                                fc='red', 
+                                ec='red',
+                                alpha=0.5)
+            self.force_arrows.append(arrow)
+
+        self.forces = np.zeros(8)  # Initialize forces array
+
         # Create timer for visualization updates
         self.update_timer = self.create_timer(0.05, self.update_plot)  # 20Hz update rate
 
     def controller_callback(self, msg):
         self.position = np.array([msg.x1, msg.y1])
         self.orientation = msg.alpha
+        self.center_position = np.array([msg.center_state_x, msg.center_state_y])
+        self.forces = np.array(msg.u_full)
+        
+        # Update paths
+        self.robot_path.append(self.position)
+        self.center_path.append(self.center_position)
 
     def update_plot(self):
         # Calculate rotated offsets for rectangle position
@@ -86,6 +153,57 @@ class RealTimeVisualizer(Node):
             y=self.position[1],
             dx=dx,
             dy=dy
+        )
+
+        # Update center point
+        self.center_point.center = self.center_position
+
+        # Update connection line
+        self.connection_line.set_data(
+            [self.position[0], self.center_position[0]],
+            [self.position[1], self.center_position[1]]
+        )
+
+        # Update force arrows
+        for i in range(8):
+            if abs(self.forces[i]) < 1e-6:
+                self.force_arrows[i].set_alpha(0.0)
+                continue
+            else:
+                self.force_arrows[i].set_alpha(1.0)
+
+            # Get local positions
+            local_pos = self.pos_orient[i]
+            force_magnitude = self.forces[i] * self.force_scaler  # Scale factor for visualization
+            
+            # Calculate start and end points
+            end_point = np.array([local_pos[0], local_pos[1]])
+            direction = np.array([local_pos[2], local_pos[3]])
+            start_point = end_point + direction * force_magnitude
+
+            # Transform to global coordinates
+            start_global = self.position + R @ start_point
+            end_global = self.position + R @ end_point
+
+            # Update arrow
+            dx = end_global[0] - start_global[0]
+            dy = end_global[1] - start_global[1]
+            self.force_arrows[i].set_data(x=start_global[0], 
+                                        y=start_global[1],
+                                        dx=dx, 
+                                        dy=dy)
+
+        # Update paths
+        robot_path_array = np.array(self.robot_path)
+        center_path_array = np.array(self.center_path)
+        
+        self.robot_path_line.set_data(
+            robot_path_array[:, 0],
+            robot_path_array[:, 1]
+        )
+        self.center_path_line.set_data(
+            center_path_array[:, 0],
+            center_path_array[:, 1]
         )
 
         # Trigger redraw

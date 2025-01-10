@@ -1,15 +1,15 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <root>
- <tabbed_widget name="Main Window" parent="main_window">
+ <tabbed_widget parent="main_window" name="Main Window">
   <Tab tab_name="Position" containers="1">
    <Container>
-    <DockSplitter orientation="-" count="1" sizes="1">
+    <DockSplitter count="1" sizes="1" orientation="-">
      <DockArea name="...">
-      <plot mode="XYPlot" style="Lines" flip_y="false" flip_x="false">
-       <range bottom="0.435288" top="3.259681" left="-2.463556" right="2.847452"/>
+      <plot flip_x="false" mode="XYPlot" style="Lines" flip_y="false">
+       <range top="3.449089" bottom="-1.743571" right="2.495573" left="-1.491810"/>
        <limitY/>
-       <curve name="/px4_mpc/controller_values/center_state_[x;y]" color="#f14cc1" curve_x="/px4_mpc/controller_values/center_state_x" curve_y="/px4_mpc/controller_values/center_state_y"/>
-       <curve name="/px4_mpc/controller_values/center_error_[x;y]" color="#9467bd" curve_x="/px4_mpc/controller_values/center_error_x" curve_y="/px4_mpc/controller_values/center_error_y"/>
+       <curve color="#f14cc1" curve_y="/px4_mpc/controller_values/center_state_y" curve_x="/px4_mpc/controller_values/center_state_x" name="/px4_mpc/controller_values/center_state_[x;y]"/>
+       <curve color="#9467bd" curve_y="/px4_mpc/controller_values/center_error_y" curve_x="/px4_mpc/controller_values/center_error_x" name="/px4_mpc/controller_values/center_error_[x;y]"/>
       </plot>
      </DockArea>
     </DockSplitter>
@@ -17,70 +17,70 @@
   </Tab>
   <Tab tab_name="States" containers="1">
    <Container>
-    <DockSplitter orientation="-" count="1" sizes="1">
-     <DockSplitter orientation="|" count="2" sizes="0.500326;0.499674">
-      <DockSplitter orientation="-" count="5" sizes="0.200228;0.200228;0.19909;0.200228;0.200228">
+    <DockSplitter count="1" sizes="1" orientation="-">
+     <DockSplitter count="2" sizes="0.500538;0.499462" orientation="|">
+      <DockSplitter count="5" sizes="0.200161;0.200161;0.199354;0.200161;0.200161" orientation="-">
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-2.036183" top="2.420079" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="2.495573" bottom="-1.491810" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/center_error_x" color="#ff0000"/>
-         <curve name="/px4_mpc/controller_values/center_state_x" color="#000000"/>
+         <curve color="#ff0000" name="/px4_mpc/controller_values/center_error_x"/>
+         <curve color="#000000" name="/px4_mpc/controller_values/center_state_x"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="0.435288" top="3.259681" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="2.629859" bottom="-0.924342" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/center_error_y" color="#ff0000"/>
-         <curve name="/px4_mpc/controller_values/center_state_y" color="#000000"/>
+         <curve color="#ff0000" name="/px4_mpc/controller_values/center_error_y"/>
+         <curve color="#000000" name="/px4_mpc/controller_values/center_state_y"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-0.550236" top="1.031796" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.709068" bottom="-0.614253" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/center_error_vx" color="#ff0000"/>
-         <curve name="/px4_mpc/controller_values/center_state_vx" color="#000000"/>
+         <curve color="#ff0000" name="/px4_mpc/controller_values/center_error_vx"/>
+         <curve color="#000000" name="/px4_mpc/controller_values/center_state_vx"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-0.937032" top="0.743106" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.700286" bottom="-0.624098" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/center_error_vy" color="#ff0000"/>
-         <curve name="/px4_mpc/controller_values/center_state_vy" color="#000000"/>
+         <curve color="#ff0000" name="/px4_mpc/controller_values/center_error_vy"/>
+         <curve color="#000000" name="/px4_mpc/controller_values/center_state_vy"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-0.012299" top="0.513553" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.513765" bottom="-0.016453" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/center_error_omega" color="#ff0000"/>
-         <curve name="/px4_mpc/controller_values/center_state_omega" color="#000000"/>
+         <curve color="#ff0000" name="/px4_mpc/controller_values/center_error_omega"/>
+         <curve color="#000000" name="/px4_mpc/controller_values/center_state_omega"/>
         </plot>
        </DockArea>
       </DockSplitter>
-      <DockSplitter orientation="-" count="3" sizes="0.333712;0.332577;0.333712">
+      <DockSplitter count="3" sizes="0.333602;0.332796;0.333602" orientation="-">
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="1.145152" top="2.840362" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="2.829439" bottom="1.593016" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/u[0]" color="#0000ff"/>
+         <curve color="#0000ff" name="/px4_mpc/controller_values/u[0]"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-2.870000" top="0.070000" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.058500" bottom="-2.398487" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/u[1]" color="#0000ff"/>
+         <curve color="#0000ff" name="/px4_mpc/controller_values/u[1]"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_y="false" flip_x="false">
-         <range bottom="-0.000123" top="-0.000010" left="279.494697" right="292.400286"/>
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.000190" bottom="-0.000035" right="103.693645" left="73.694224"/>
          <limitY/>
-         <curve name="/px4_mpc/controller_values/u[2]" color="#0000ff"/>
+         <curve color="#0000ff" name="/px4_mpc/controller_values/u[2]"/>
         </plot>
        </DockArea>
       </DockSplitter>
@@ -88,14 +88,82 @@
     </DockSplitter>
    </Container>
   </Tab>
-  <currentTabIndex index="1"/>
+  <Tab tab_name="Physical forces" containers="1">
+   <Container>
+    <DockSplitter count="1" sizes="1" orientation="-">
+     <DockSplitter count="2" sizes="0.500538;0.499462" orientation="|">
+      <DockSplitter count="4" sizes="0.25;0.25;0.25;0.25" orientation="-">
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="1.414711" bottom="0.796840" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#1ac938" name="/px4_mpc/controller_values/u_full[0]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="1.414727" bottom="0.796176" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#f14cc1" name="/px4_mpc/controller_values/u_full[2]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.100000" bottom="-0.100000" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#9467bd" name="/px4_mpc/controller_values/u_full[4]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.100000" bottom="-0.100000" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#bcbd22" name="/px4_mpc/controller_values/u_full[6]"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter count="4" sizes="0.25;0.25;0.25;0.25" orientation="-">
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.100000" bottom="-0.100000" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#ff7f0e" name="/px4_mpc/controller_values/u_full[1]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="0.100000" bottom="-0.100000" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#d62728" name="/px4_mpc/controller_values/u_full[3]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="1.199343" bottom="-0.029252" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#17becf" name="/px4_mpc/controller_values/u_full[5]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" style="Lines" flip_y="false">
+         <range top="1.199144" bottom="-0.029247" right="103.693645" left="73.694224"/>
+         <limitY/>
+         <curve color="#1f77b4" name="/px4_mpc/controller_values/u_full[7]"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+     </DockSplitter>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="2"/>
  </tabbed_widget>
  <use_relative_time_offset enabled="1"/>
  <!-- - - - - - - - - - - - - - - -->
  <!-- - - - - - - - - - - - - - - -->
  <Plugins>
   <plugin ID="DataLoad CSV">
-   <parameters time_axis="" delimiter="0"/>
+   <parameters delimiter="0" time_axis=""/>
   </plugin>
   <plugin ID="DataLoad MCAP"/>
   <plugin ID="DataLoad ROS2 bags">

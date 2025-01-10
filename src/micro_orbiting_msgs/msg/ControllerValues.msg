@@ -20,9 +20,13 @@ float64 e5
 float64 e_omega
 
 # Control inputs (u)
-float64[] u
+float64[] u # Standard u, either float64[3] or float64[8]
 float64[] u_nom
 float64[] u_control
+
+# Full control inputs (u8)
+# Only used if the controller calculates a u[3]
+float64[8] u_full
 
 # Planned state trajectory
 float64[] plan_x1
