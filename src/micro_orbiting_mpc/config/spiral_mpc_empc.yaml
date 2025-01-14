@@ -20,8 +20,7 @@
         k_omega: 1.0
         max_acceleration: 0.0    
         time_scaling: 5
-        # empc_horizon: 10
-        empc_horizon: 1
+        empc_horizon: 10
       P2:
         Q: [1, 1, 1, 1, 1]
         # Q: [5, 5, 0.2, 0.2, 0.1]

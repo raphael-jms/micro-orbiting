@@ -55,6 +55,10 @@ class CostHandler:
         if not table_exists('cost'):
             self.create_table(overwrite=True)
 
+    def __del__(self):
+        if hasattr(self, 'con'):  
+            self.con.close()
+
     def create_table(self, overwrite=False):
         if overwrite or \
             query_yes_no("Are you sure you want to delete and recreate the whole database?"):
@@ -70,13 +74,15 @@ class CostHandler:
                                     F32 FLOAT,
                                     F41 FLOAT,
                                     F42 FLOAT,
+                                    tuning STRING,
+                                    robot_params STRING,
                                     t_cost STRING,
                                     t_set STRING,
                                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                                 )''')
             self.con.commit()
 
-    def get_cost_fcn(self, model):
+    def get_cost_fcn(self, model, tuning, robot_params):
         """
         Get the newest cost function from the database
         """
@@ -86,9 +92,10 @@ class CostHandler:
             FROM cost 
             WHERE F11 = ? AND F12 = ? AND F21 = ? AND F22 = ? 
                 AND F31 = ? AND F32 = ? AND F41 = ? AND F42 = ?
+                AND tuning = ? AND robot_params = ?                         
             ORDER BY created_at DESC 
             LIMIT 1
-        ''', self.get_db_lookup_params(model))
+        ''', self.get_db_lookup_params(model, tuning, robot_params))
 
         result = self.cur.fetchone()
         
@@ -114,22 +121,26 @@ class CostHandler:
             raise ValueError("No cost function found in database for the given model. Please run " +
                              "the setup first according to the README.md file.")
 
-    def set_cost_fcn(self, tcost, tset, model):
+    def set_cost_fcn(self, tcost, tset, model, tuning, robot_params):
         tset = json.dumps(tset, cls=PolytopeEncoder)
         self.cur.execute('''
-            INSERT INTO cost(F11, F12, F21, F22, F31, F32, F41, F42, t_cost, t_set)
-                         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                         (*self.get_db_lookup_params(model), str(tcost), tset))
+            INSERT INTO cost(F11, F12, F21, F22, F31, F32, F41, F42, tuning, robot_params, 
+                         t_cost, t_set)
+                         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                         (*self.get_db_lookup_params(model, tuning, robot_params), str(tcost), tset))
         self.con.commit()
 
-    def get_db_lookup_params(self, model):
+    def get_db_lookup_params(self, model, tuning, robot_params):
         """ 
-        Determine the parameters F11, F12, F21, F22, F31, F32, F41, F42 for the database lookup from
-        the model.
+        Determine the parameters F11, F12, F21, F22, F31, F32, F41, F42 for the database lookup 
+        from the model.
         """
         f8 = [-1.0]*8 # -1 if it has not failed
         for actuator in model.failed_actuators:
             f8[actuator["idx"]] = actuator["intensity"]
+
+        f8.append(json.dumps(tuning, sort_keys=True))
+        f8.append(json.dumps(robot_params, sort_keys=True))
 
         return f8
 

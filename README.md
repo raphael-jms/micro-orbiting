@@ -28,11 +28,15 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 ## Setup for the MPC controller where the terminal controller is based on eMPC
 In order to run the controller, the cost functions and terminal sets need to be pre-calculated first. This can be done calling
 ```
-TODO
+python3 -m micro_orbiting_mpc.util.setup_cost_fcn_db
 ```
-The resulting database is saved in `~/.ros/micro_orbiting/spiralMPC_empc_cost.db`.
+from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved in `~/.ros/micro_orbiting/spiralMPC_empc_cost.db`.
 
 ## Available parameters in config dir:
+
+> [!IMPORTANT]
+> In order to make changed parameters available to ROS, the package nedds to be rebuilt using
+> `colcon build`, respectively `colcon build --packages-select micro_orbiting_mpc`!
 
 ### MPC params
 - mode: faultfree, reactive, spiralMPC_linearizing, spiralMPC_eMPC, dummy
@@ -59,19 +63,22 @@ The resulting database is saved in `~/.ros/micro_orbiting/spiralMPC_empc_cost.db
 # ToDos
 
 **Now**
-- [ ] Check terminal constraint in spiral linearizing MPC!!!
+- [x] Check terminal constraint in spiral linearizing MPC!!!
 - [ ] Check proof for derivation of spiraling MPC!!! 
         - see comment in terminal_incredients_linearizing!!!
         - Why do I have `alpha/3` in spiral_mpc_1, build_solver???
 - [ ] remove `recalculate_terminal_ingredients` from all files && check README
 
+
+TODO add a timer for the calculation of the terminal sets
+
 **Next steps**
-- [ ] Spiraling node
-    - [ ] Terminal constraint
-- [ ] add config file for the robot
-- [ ] Implement eMPC spiraling
-    - [ ] Necessary callers
-    - [ ] Terminal constraint
+- [x] Spiraling node
+    - [x] Terminal constraint
+- [x] add config file for the robot
+- [x] Implement eMPC spiraling
+    - [x] Necessary callers
+    - [x] Terminal constraint
     - [ ] Decide how to distribute: With or without database?
 - [ ] Not sure when: Add new arena to Gazebo simulation?
 - [ ] Implement reactive mode
