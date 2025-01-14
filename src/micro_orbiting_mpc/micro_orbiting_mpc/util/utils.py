@@ -13,6 +13,9 @@ def read_yaml(file_name, *keys):
         config_dir = get_package_share_directory('micro_orbiting_mpc')
         config_file = os.path.join(config_dir, 'config', file_name)
 
+        if not os.path.exists(config_file):
+            raise FileNotFoundError(f"File '{config_file}' not found.")
+
         with open(config_file, 'r') as file:
             data = yaml.safe_load(file)
         

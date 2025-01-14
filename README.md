@@ -18,6 +18,20 @@ The parameters can be changed in the corresponding parameter file (for the case 
 
 The trajectories can be set by publishing to the topic `/trajectory_commands`. The one from the parameter file is published automatically at startup and will be overwritten with every new ROS trajectory message.
 
+> [!TIP]
+> For linearized spiraling MPC, to guarantee feasibility, the initial position can be set to
+> ```
+> export PX4_GZ_MODEL_POSE="0,-0.333,0.2,0,0,0"
+> ```
+> or the desired setpoint can be slightly altered to fit the center point better by setting `traj_shape: "hover_0_0.333_0"`.
+
+## Setup for the MPC controller where the terminal controller is based on eMPC
+In order to run the controller, the cost functions and terminal sets need to be pre-calculated first. This can be done calling
+```
+TODO
+```
+The resulting database is saved in `~/.ros/micro_orbiting/spiralMPC_empc_cost.db`.
+
 ## Available parameters in config dir:
 
 ### MPC params
@@ -45,10 +59,11 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 # ToDos
 
 **Now**
-- [ ] Check terminal constraint in spiral linearizing MPC
+- [ ] Check terminal constraint in spiral linearizing MPC!!!
 - [ ] Check proof for derivation of spiraling MPC!!! 
         - see comment in terminal_incredients_linearizing!!!
         - Why do I have `alpha/3` in spiral_mpc_1, build_solver???
+- [ ] remove `recalculate_terminal_ingredients` from all files && check README
 
 **Next steps**
 - [ ] Spiraling node
@@ -68,6 +83,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [ ] Remove option for `trajectory_tracking=False`
 - [ ] Decide what to do with alternative to `spiral_5` (linearizing Spiral MPC)
 - [ ] Check code for unnecessary lines / commented out stuff to be deleted / ...
+- [ ] The field `traj_duration` is completely ignored anyways
 - [ ] Rename classes 
         - InputHandlerImproved to ControlAllocator
         - max_force to max_thrust
@@ -77,6 +93,7 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 - [ ] Delete `sim_launch.py`? What exactly does it do?
 - [ ] Add normalization of the error again?
 - [ ] Generalization to 3D?
+- [ ] Add a setup.py file where the db is calculated?
 
 **Done**
 - [x] how to load trajectories?
@@ -99,4 +116,11 @@ ros2 run plotjuggler plotjuggler
 ## Simulationn parameters Gazebo
 ```
 ~/.gz/fuel/fuel.gazebosim.org/proque/models/kth_freeflyer/1/model.sdf
+```
+
+# Install pympc
+_Attention_: This is _not_ the `pympc` package from pip, but the one with the same name by [Tobia Marcucci](https://www.ece.ucsb.edu/people/faculty/tobia-marcucci). Install with
+```
+git clone git@github.com:TobiaMarcucci/pympc.git
+pip install ./pympc
 ```

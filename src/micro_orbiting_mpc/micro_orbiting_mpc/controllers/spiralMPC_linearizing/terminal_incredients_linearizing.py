@@ -16,21 +16,30 @@ class TerminalIncredients:
         self.model = model
         self.params = params
 
+        self.r = self.model.spiral_params.r
+        self.omega_theta = self.model.spiral_params.omega_theta
+
+        self.mass = self.model.mass
+        self.J = self.model.J
+
+        self.M = np.array([
+            [1/self.mass, 0, -self.r/self.J],
+            [0, 1/self.mass, 0],
+            [0, 0, 1/self.J]
+        ])
+        self.Minv = np.array([[self.mass, 0, self.r*self.mass],
+                         [0, self.mass, 0],
+                         [0, 0, self.J]])
     def get_termimal_cost(self):
         """
         The result will never be exactly the same if I once calculate in discrete and once in continuous time!
         Here discrete, is (maybe?) the more accurate thing to do
         """
-        self.model = model
-
         self.Q = np.diag(self.params["Q"])
         self.R = np.diag(self.params["R"])
 
         self.Q_lin = np.diag(self.params["Q_linfb"])
         self.R_lin = np.diag(self.params["R_linfb"])
-
-        self.r = model.spiral_params.r
-        self.omega_theta = model.spiral_params.omega_theta
 
         # The feedback-linearized system
         A_lin_cont = np.array([
@@ -56,19 +65,7 @@ class TerminalIncredients:
         [self.A_lin, self.B_lin, self.C_lin, self.D_lin, dt] = scipy.signal.cont2discrete((A_lin_cont, B_lin_cont, C_lin_cont, D_lin_cont), self.model.dt)
 
         # Other parameters
-        self.mass = self.model.mass
-        self.J = self.model.J
-
-        self.M = np.array([
-            [1/self.mass, 0, -self.r/self.J],
-            [0, 1/self.mass, 0],
-            [0, 0, 1/self.J]
-        ])
-        self.Minv = np.array([[self.mass, 0, self.r*self.mass],
-                         [0, self.mass, 0],
-                         [0, 0, self.J]])
-
-        self.K_lin_fb, P_lin_fb = self.get_linearized_feedback(self.A_lin, self.B_lin, self.Q_lin, self.R_lin)
+        self.K_lin_fb, self.P_lin_fb = self.get_linearized_feedback(self.A_lin, self.B_lin, self.Q_lin, self.R_lin)
         self.k_omega = self.K_lin_fb[-1, -1].item()
 
         # calculate P_Q
@@ -139,11 +136,9 @@ class TerminalIncredients:
             ))
             return mat1 - lam * mat2 >> 0
 
-        r = self.model.spiral_params.r
-        omega_theta = self.model.spiral_params.omega_theta
-
-        subst = sp.lambdify(self.r, sp.Matrix(self.Minv), "numpy")
-        Minv = subst(r)
+        r = self.r
+        omega_theta = self.omega_theta
+        Minv = self.Minv
 
         # Build the constraint on feasibility of the control law; constructed from parts c1-c3
         # Calculate c1
@@ -158,10 +153,10 @@ class TerminalIncredients:
         # TODO Proof
         c2s = []
         for alpha in np.linspace(0, 2*np.pi, 100):
-            mat = np.zeros_like(self.K)
+            mat = np.zeros_like(self.K_lin_fb)
             mat[0,4] = -np.sin(alpha) * 2*r*omega_theta
             mat[1,4] =  np.cos(alpha) * 2*r*omega_theta
-            c2s.append(np.linalg.norm(-self.K + mat))
+            c2s.append(np.linalg.norm(-self.K_lin_fb + mat))
 
         c2s = np.array(c2s)
         if not np.all(np.isclose(c2s, c2s[0])):
@@ -179,7 +174,7 @@ class TerminalIncredients:
         """
         Now, the condition e^T C e <= c3**2 is ready to be fulfilled
         """
-        constraints.append(get_s_procedure_constraint(self.P, None, -upper_bound,
+        constraints.append(get_s_procedure_constraint(self.P_lin_fb, None, -upper_bound,
                                                         C, None, -c3.item()**2, 
                                                         lam))
 
@@ -189,7 +184,7 @@ class TerminalIncredients:
 
         prob.solve(solver=cp.SCS)
 
-        terminal_set = EllipticalTerminalConstraint(prob.value, self.P)
+        terminal_set = EllipticalTerminalConstraint(prob.value, self.P_lin_fb)
         # print(f"Terminal set: {terminal_set}")
         return terminal_set
     

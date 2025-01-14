@@ -244,6 +244,7 @@ class SpiralMPC(GenericMPC):
             self.data['c'].add_data(t, c0)
             self.data['ce'].add_data(t, c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
 
+        u_phys = self.ih.get_physical_input(u_res)
         self.publish_last_controller_values(
             t,
             x0,
@@ -256,7 +257,8 @@ class SpiralMPC(GenericMPC):
             cost,
             slv_status,
             c0, 
-            c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten()
+            c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten(),
+            u_phys
         )
 
         if self.plot_plannned_traj:
@@ -268,10 +270,10 @@ class SpiralMPC(GenericMPC):
                 self.axs_planned_states[i].plot([t+i*self.dt for i in range(self.Nt+1)], c_planned[i,:], color)
                 self.axs_planned_states[i].plot(t, c_planned[i,0], color + "o")
 
-        return self.ih.get_physical_input(u_res)
+        return u_phys 
 
     def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, 
-                                       slv_status, center, center_error):
+                                       slv_status, center, center_error, u_phys):
         """
         Publish the last controller values to the ROS topic.
         Use only the values of ControllerValues that are relevant
@@ -289,6 +291,7 @@ class SpiralMPC(GenericMPC):
         msg.u = u.flatten().tolist()
         msg.u_nom = u_nom.flatten().tolist()
         msg.u_control = u_contr.full().flatten().tolist()
+        msg.u_full = u_phys.flatten().tolist()
 
         x_plan = x_plan.reshape(5, -1, order='F')
         msg.plan_x1 = [x[0].__float__() for x in x_plan]

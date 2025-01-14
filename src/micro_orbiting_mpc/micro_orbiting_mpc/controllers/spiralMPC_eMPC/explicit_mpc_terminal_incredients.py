@@ -22,8 +22,7 @@ cylinder in the largest square in the polygon
 
 """
 class explicitMPCTerminalIngredients:
-    def __init__(self, model, tuning_file="./controllers/tuning.yaml", 
-                 failure_case="explicit_mpc_spiraling", param_set="P1"):
+    def __init__(self, model, tuning):
         """
         Calculate the terminal ingredients based on an explicit MPC controller 
         as part of the terminal controller.
@@ -31,22 +30,22 @@ class explicitMPCTerminalIngredients:
         self.model=model
         self.spiral_params = SpiralParameters(model)
 
-        self.max_acceleration = read_yaml(tuning_file, failure_case, param_set, "max_acceleration")
+        self.max_acceleration = tuning["max_acceleration"]
+        self.k_omega = tuning["k_omega"]
+        self.tuning = tuning
 
         # self.r = sp.symbols('r', real=True, positive=True)
         # self.omega_theta = sp.symbols('omega_theta', real=True)
         self.r = self.spiral_params.r
         self.omega_theta = self.spiral_params.omega_theta
         self.virt_force = ca.DM(self.spiral_params.b)
-        # self.k_omega = read_yaml(tuning_file, failure_case, param_set, "k_omega")
-        self.k_omega = 2 * self.omega_theta
 
         self.mass = model.mass
         self.J = model.J
 
         # The cost matrices for the function used in the MPC; Used to calculate terminal cost
-        self.Q = read_yaml_matrix(tuning_file, failure_case, param_set, "Q")
-        self.R = read_yaml_matrix(tuning_file, failure_case, param_set, "R")
+        self.Q = np.diag(tuning["Q"])
+        self.R = np.diag(tuning["R"])
         self.ensure_diagonal(self.Q)
         self.ensure_diagonal(self.R)
 
@@ -113,7 +112,9 @@ class explicitMPCTerminalIngredients:
         return sol.value(u)
 
     def calculate_terminal_set(self, xSet, ySet):
-        """
+        """ 
+        Calculate the terminal set for the terminal controller.  The result is the union of all 
+        regions of the eMPC controller.
         """
         assert xSet.Nx == 2 and ySet.Nx == 2
 
@@ -195,8 +196,8 @@ class explicitMPCTerminalIngredients:
 
         # Save results
         # filename = f"explMPC/expl_MPC_2dim_horz_{horizon}.yaml"
-        filename = f"controllers/explicitMPC_and_tuning/explMPC/expl_MPC_2dim_horz_{horizon}.yaml"
-        controller.export_explicit_solution(filename)
+        # filename = f"controllers/explicitMPC_and_tuning/explMPC/expl_MPC_2dim_horz_{horizon}.yaml"
+        # controller.export_explicit_solution(filename)
 
         return controller
 
@@ -276,9 +277,11 @@ class explicitMPCTerminalIngredients:
             uimax = max(u1max, u2max)
 
             # Calculate the explicit MPC and cost
-            empc_horizon = 10
+            # empc_horizon = 10
             # empc_horizon = 15
-            time_scaling = 5
+            # time_scaling = 5
+            empc_horizon = self.tuning["empc_horizon"]
+            time_scaling = self.tuning["time_scaling"]
             empc = self.calculate_empc(uimax, empc_horizon, time_scaling)
         else:
             empc = ModelPredictiveController.import_explicit_solution(
@@ -359,6 +362,16 @@ class explicitMPCTerminalIngredients:
         code = f"sp.lambdify((e0_1, e0_2, e0_3, e0_4, e0_5), {final_expression}, modules={{'Abs':ca.fabs, 'tanh':ca.tanh}})"
         # execute code with cost = eval()
         return code
+
+    def get_terminal_cost(self):
+        if self.terminal_cost is None:
+            raise ValueError("Terminal cost not calculated.")
+        return self.create_python_code(self.terminal_cost)
+
+    def get_terminal_set(self):
+        if self.terminal_set is None:
+            raise ValueError("Terminal set not calculated.")
+        return self.terminal_set
 
     def compare_bound_with_controller(self, empc, bound):
         if empc.Nx != 2:

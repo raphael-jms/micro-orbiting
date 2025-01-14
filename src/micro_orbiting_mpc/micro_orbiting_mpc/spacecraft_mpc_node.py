@@ -218,6 +218,7 @@ class SpacecraftMPCNode(Node):
                 }
                 self.controller = GenericMPC(self.model, self.params, self)
             case 'spiralMPC_linearizing':
+                # Actuator failures present from start, MPC controller based on linear MPC
                 # initialize SpiralModel
                 self.model = self.initialize_damaged_spiral_model()
                 self.declare_parameter("recalculate_terminal_set", False)
@@ -232,9 +233,11 @@ class SpacecraftMPCNode(Node):
                 self.controller = SpiralMPC(self.model, self.params, self)
             case 'spiralMPC_eMPC':
                 # Actuator failures present from start, MPC controller based on eMPC
-                self.model = DummyModel()
+                self.model = self.initialize_damaged_spiral_model()
                 self.params = {
-                    # TODO: Add parameters
+                    "horizon": self.horizon,
+                    "tuning": self.tuning,
+                    "param_set": self.param_set,
                 }
                 self.controller = FancyMPC(self.model, self.params, self)
             case 'feedback_linearizing_controller':

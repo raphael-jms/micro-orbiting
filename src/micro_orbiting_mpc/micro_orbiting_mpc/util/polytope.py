@@ -6,6 +6,10 @@ import cvxpy as cp
 import itertools
 
 class MyPolytope:
+    """
+    A certainly-not-optimized implementation of a polytope class that combines the capabilities
+    of the polytope package, cvxpy and scipy.spatial.
+    """
     def __init__(self, A, b):
         # Check inputs
         assert A.shape[0] == b.shape[0]
