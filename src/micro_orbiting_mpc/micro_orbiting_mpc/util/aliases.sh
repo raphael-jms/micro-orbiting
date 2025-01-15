@@ -19,3 +19,4 @@ function bot_hover() {
     ros2 topic pub --once /trajectory_commands micro_orbiting_msgs/msg/SetTrajectory "{action: 'hover_$1_$2_$3', duration: 5, file_path: ''}"
 }
 alias viznode='ros2 run micro_orbiting_mpc viz_node'
+alias viz="tmux new-session \; split-window \; send-keys -t 0 \"viznode\" C-m \; send-keys -t 1 \"plotj\" C-m"

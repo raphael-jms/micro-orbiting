@@ -6,9 +6,11 @@ import matplotlib.pyplot as plt
 import time
 import random
 
+from micro_orbiting_msgs.msg import ControllerValues
+
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
-from micro_orbiting_mpc.util.utils import LogData, read_yaml_matrix, Rot3Inv
+from micro_orbiting_mpc.util.utils import LogData, Rot3Inv
 from micro_orbiting_mpc.util.cost_handler import CostHandler
 
 class FancyMPC(GenericMPC):
@@ -16,10 +18,11 @@ class FancyMPC(GenericMPC):
     DEFAULT_PARAMS["trajectory_tracking"] = True
     DEFAULT_PARAMS["terminal_constraint"] = "from_file"
 
-    def __init__(self, model, params, ros_node, include_omega=False):
+    def __init__(self, model, params, robot_params, ros_node, include_omega=False):
         self.include_omega = include_omega # Include omega in the optimization variables
 
         self.spiral_params = SpiralParameters(model)
+        self.robot_params = robot_params
 
         super().__init__(model, params, ros_node)
 
@@ -29,7 +32,10 @@ class FancyMPC(GenericMPC):
 
         # The terminal cost is different for the spiraling case; overwrite it
         ch = CostHandler()
-        self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model)
+
+        tuning = self.tuning[self.param_set]
+        self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
+                                                                       self.robot_params)
         print(self.terminal_constraint)
 
     def build_solver(self):
@@ -39,8 +45,8 @@ class FancyMPC(GenericMPC):
         build_solver_start = time.time()
 
         # Cost function weights
-        Q = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "Q")
-        R = read_yaml_matrix(self.tuning_file, self.failure_case, self.param_set, "R")
+        Q = np.diag(self.tuning[self.param_set]["Q"])
+        R = np.diag(self.tuning[self.param_set]["R"])
 
         self.Q = ca.MX(Q)
         self.R = ca.MX(R)
@@ -219,7 +225,7 @@ class FancyMPC(GenericMPC):
             self.data["u"].add_data(t, u_res)
             self.data["u_nom"].add_data(t, u_nom_alpha_corrected)
             self.data["u_control"].add_data(t, u[0])
-            self.data["e"].add_data(t, x0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
+            self.data["e"].add_data(t, x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten())
             self.data["slv_time"].add_data(t, slv_time)
             self.data['control_cost'].add_data(t, cost)
             self.data['solver_state'].add_data(t, slv_status)
@@ -229,6 +235,24 @@ class FancyMPC(GenericMPC):
             self.data['running_cost_u'].add_data(t, running_u)
             self.data['c'].add_data(t, c0)
             self.data['ce'].add_data(t, c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
+        
+        u_phys = self.ih.get_physical_input(u_res)
+
+        self.publish_last_controller_values(
+            t,
+            x0,
+            self.x_sp,
+            u_res,
+            u_nom_alpha_corrected,
+            u[0],
+            x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten(),
+            slv_time,
+            cost,
+            slv_status,
+            c0,
+            c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten(),
+            u_phys
+        )
 
         if self.plot_plannned_traj and abs(t%1)<0.075:
             colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
@@ -240,7 +264,7 @@ class FancyMPC(GenericMPC):
                 self.axs_planned_states[i].plot([t+i*self.dt for i in range(self.Nt+1)], c_planned[i,:], color)
                 self.axs_planned_states[i].plot(t, c_planned[i,0], color + "o")
 
-        return self.ih.get_physical_input(u_res)
+        return u_phys
 
     def calculate_cost_parts(self, c, u):
         cc_final = c[self.Nt][0:self.Nopt]
@@ -287,6 +311,60 @@ class FancyMPC(GenericMPC):
         necessary_force = np.vstack((secondDer[0:2, :] * self.mass, np.zeros_like(secondDer[0, :])))
         # necessary_force = -np.vstack((secondDer[0:2, :] * self.mass, np.zeros_like(secondDer[0, :])))
         self.nominal_input = necessary_force
+    
+    def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, 
+                                       slv_status, center, center_error, u_phys):
+        """
+        Publish the last controller values to the ROS topic.
+        Use only the values of ControllerValues that are relevant
+        """
+        msg = ControllerValues()
+        msg.header.stamp = self._ros_node.get_clock().now().to_msg()
+        msg.header.frame_id = "controller_values"
+        msg.x1 = x0[0].item()
+        msg.y1 = x0[1].item()
+        msg.alpha = x0[2].item()
+        msg.x2 = x0[3].item()
+        msg.y2 = x0[4].item()
+        msg.omega = x0[5].item()
+
+        msg.u = u.flatten().tolist()
+        msg.u_nom = u_nom.flatten().tolist()
+        msg.u_control = u_contr.full().flatten().tolist()
+        msg.u_full = u_phys.flatten().tolist()
+
+        x_plan = x_plan.reshape(5, -1, order='F')
+        msg.plan_x1 = [x[0].__float__() for x in x_plan]
+        msg.plan_y1 = [x[1].__float__() for x in x_plan]
+        msg.plan_alpha = [x[2].__float__() for x in x_plan]
+        msg.plan_x2 = [x[3].__float__() for x in x_plan]
+        msg.plan_y2 = [x[4].__float__() for x in x_plan]
+        msg.plan_omega = [x[5].__float__() for x in x_plan]
+
+        print(e)
+        msg.e1 = e[0].item()
+        msg.e2 = e[1].item()
+        msg.e3 = e[2].item()
+        msg.e5 = e[3].item()
+        msg.e_omega = e[4].item()
+
+        msg.solver_time = slv_time
+        msg.control_cost = cost
+        msg.solver_state = self.SOLVE_STATUS[slv_status]
+
+        msg.center_state_x = center[0].item()
+        msg.center_state_y = center[1].item()
+        msg.center_state_omega = center[4].item()
+        msg.center_state_vx = center[2].item()
+        msg.center_state_vy = center[3].item()
+
+        msg.center_error_x = center_error[0].item()
+        msg.center_error_y = center_error[1].item()
+        msg.center_error_omega = center_error[4].item()
+        msg.center_error_vx = center_error[2].item()
+        msg.center_error_vy = center_error[3].item()
+
+        self.controller_stats_pub.publish(msg)
 
     def plot_internal_vals(self, filename=None, filepath="data/simulations/"):
         """

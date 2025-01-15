@@ -239,7 +239,8 @@ class SpacecraftMPCNode(Node):
                     "tuning": self.tuning,
                     "param_set": self.param_set,
                 }
-                self.controller = FancyMPC(self.model, self.params, self)
+                include_omega = True
+                self.controller = FancyMPC(self.model, self.params, self.robot_parameters, self, include_omega)
             case 'feedback_linearizing_controller':
                 # initialize SpiralModel
                 self.model = self.initialize_damaged_spiral_model()

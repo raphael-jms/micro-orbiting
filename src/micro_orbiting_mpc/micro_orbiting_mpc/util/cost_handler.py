@@ -4,6 +4,7 @@ import json
 import numpy as np
 import casadi as ca
 import os
+import pprint
 
 from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.util.yes_no_question import query_yes_no
@@ -43,6 +44,7 @@ class CostHandler:
         # Get the file location
         file_location = os.path.join(cache_dir, db_name)
         self.db_name = db_name
+        self.file_location = file_location
 
         # Connect to the database
         self.con = sqlite3.connect(file_location)
@@ -53,7 +55,8 @@ class CostHandler:
             return self.cur.fetchone() is not None
         
         if not table_exists('cost'):
-            self.create_table(overwrite=True)
+            raise ValueError(f"Table 'cost' does not exist in the database {file_location}. " + \
+                             "Please run the setup according to the README.md file.")
 
     def __del__(self):
         if hasattr(self, 'con'):  
@@ -118,8 +121,13 @@ class CostHandler:
 
             return terminal_cost, terminal_set
         else:
-            raise ValueError("No cost function found in database for the given model. Please run " +
-                             "the setup first according to the README.md file.")
+            error_msg = f"No cost function found in database at {self.file_location} for the " + \
+                        "given model. You requested terminal ingredients for settings\n" + \
+                        pprint.pformat(tuning) + "\n" + \
+                        pprint.pformat(robot_params) + "\n" + \
+                        pprint.pformat(model.failed_actuators) + "\n" + \
+                        "Please run the setup first according to the README.md file."
+            raise ValueError(error_msg)
 
     def set_cost_fcn(self, tcost, tset, model, tuning, robot_params):
         tset = json.dumps(tset, cls=PolytopeEncoder)
@@ -137,7 +145,13 @@ class CostHandler:
         """
         f8 = [-1.0]*8 # -1 if it has not failed
         for actuator in model.failed_actuators:
-            f8[actuator["idx"]] = actuator["intensity"]
+
+            # Convert to float if necessary
+            intensity = actuator["intensity"] 
+            if isinstance(intensity, np.ndarray):
+                intensity = intensity.item()
+
+            f8[actuator["idx"]] = intensity
 
         f8.append(json.dumps(tuning, sort_keys=True))
         f8.append(json.dumps(robot_params, sort_keys=True))
