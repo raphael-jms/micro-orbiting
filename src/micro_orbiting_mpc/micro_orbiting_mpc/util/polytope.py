@@ -62,6 +62,14 @@ class MyPolytope:
 
         return ubs.value, lbs.value
 
+    def largest_contained_ball(self):
+        """
+        Calculate the largest ball that is contained in the polytope.
+        returns center, radius
+        """
+        poly = polytope.Polytope(self.A, self.b)
+        return poly.chebXc, poly.chebR
+
     def is_bounded(self):
         """
         Check if the normal vectors of the hyperplanes form a convex hull that contains zero 

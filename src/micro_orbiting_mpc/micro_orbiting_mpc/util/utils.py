@@ -3,6 +3,8 @@ import numpy as np
 from ament_index_python.packages import get_package_share_directory
 import os
 import yaml
+import matplotlib.pyplot as plt
+import copy
 
 def read_yaml(file_name, *keys):
     """
@@ -101,6 +103,32 @@ class EllipticalTerminalConstraint:
     
     def __repr__(self):
         return f"EllipticalTerminalConstraint(alpha={self.alpha},\nP={self.P})"
+
+    def plot_slice(self, dims, ax=None):
+        """
+        Plot a 2D slice through the ellipse where the value of the removed dimensions is set to zero
+        
+        input:
+        dims: list of indices of rows/columns to be removed
+        """
+        # remove dimesions 
+        P = np.delete(self.P.copy(), dims, axis=0)
+        P = np.delete(P, dims, axis=1)
+
+        if P.shape != (2,2):
+            raise ValueError("The matrix P should be 2x2. Select appropriate dimensions to remove.")
+
+        alpha = self.alpha
+
+        if ax is None:
+            fig, ax = plt.subplots(1,1)
+
+        xx,yy = np.linspace(-1,1, 1000), np.linspace(-1,1, 1000)
+        x,y = np.meshgrid(xx,yy)
+        ax.contourf(x, y, (P[0,0]*x**2 + P[1,1]*y**2 + P[0,1]*x*y + P[1,0]*x*y), [0, alpha], cmap='Reds')
+        ax.set_aspect('equal','datalim')
+
+        return ax
 
 def Rot(alplha):
     """

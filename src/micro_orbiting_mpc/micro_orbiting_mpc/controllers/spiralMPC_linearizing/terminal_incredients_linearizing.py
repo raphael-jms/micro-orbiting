@@ -7,8 +7,9 @@ import math
 import cvxpy as cp
 import casadi as ca
 
-from micro_orbiting_mpc.util.utils import read_yaml_matrix, EllipticalTerminalConstraint
+from micro_orbiting_mpc.util.utils import EllipticalTerminalConstraint, read_ros_parameter_file
 from micro_orbiting_mpc.util.get_example import get_faulty_ff_spiral
+from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters
 
 class TerminalIncredients:
@@ -30,6 +31,7 @@ class TerminalIncredients:
         self.Minv = np.array([[self.mass, 0, self.r*self.mass],
                          [0, self.mass, 0],
                          [0, 0, self.J]])
+
     def get_termimal_cost(self):
         """
         The result will never be exactly the same if I once calculate in discrete and once in continuous time!
@@ -110,6 +112,42 @@ class TerminalIncredients:
         A, b = input_bounds.get_conv_hull() # A, b for complete force
         b = b.reshape(-1,1) - A @ self.model.faulty_input_simple # A, b, for control force
 
+        r = self.r
+        omega_theta = self.omega_theta
+        Minv = self.Minv
+
+        # Build the constraint on feasibility of the control law; constructed from parts c1-c3
+        # Calculate c1
+        traj_2der = 0.1
+        traj_2der = np.linalg.norm(b, 2) / np.linalg.norm(A @ Minv, 2) * 0.4
+        _, r_phi = MyPolytope(A @ Minv, b).largest_contained_ball()
+        c1 = np.sqrt(r_phi) - traj_2der
+
+        if c1 < 0:
+            raise ValueError("c1 is negative. This means this amount of acceleration in the " + \
+                             "remaining trajectory after the MPC horizon is not admissible.")
+
+        # Calculate c2
+        c2 = r
+
+        # Calculate c3
+        alpha = ca.MX.sym('alpha')
+        
+        mat = ca.MX.zeros(self.K_lin_fb.shape)
+        mat[0,4] = -ca.sin(alpha) * 2*r*omega_theta
+        mat[1,4] = ca.cos(alpha) * 2*r*omega_theta
+        
+        objective = -ca.norm_fro(-self.K_lin_fb + mat) # casadi optimization is always minimization
+        nlp = {'x': alpha, 'f': objective}
+        opts = { 'ipopt': { 'print_level': 0, 'max_iter': 100, 'tol': 1e-4 }, 'print_time': 0 }
+        solver = ca.nlpsol('solver', 'ipopt', nlp, opts)
+        solution = solver(x0=0)
+        
+        c3 = -float(solution['f']) # casadi optimization is always minimization
+
+        ctemp = np.zeros((5,5)); ctemp[4,4] = 2*c1*c2
+        C = np.eye(5) * c3**2 + ctemp
+
         upper_bound = cp.Variable()
         lam = cp.Variable()
         constraints = []
@@ -136,46 +174,11 @@ class TerminalIncredients:
             ))
             return mat1 - lam * mat2 >> 0
 
-        r = self.r
-        omega_theta = self.omega_theta
-        Minv = self.Minv
-
-        # Build the constraint on feasibility of the control law; constructed from parts c1-c3
-        # Calculate c1
-        c1 = r
-
-        # Calculate c2
         """
-        Somehow this is easily doable in Maple, but not in Python. It turns however out that
-        the c2 is always the same for different alpha values. Since I don't have a rigorous
-        proof for this, I verify this by sampling alpha. The proof comes later (hopefully).
-        """
-        # TODO Proof
-        c2s = []
-        for alpha in np.linspace(0, 2*np.pi, 100):
-            mat = np.zeros_like(self.K_lin_fb)
-            mat[0,4] = -np.sin(alpha) * 2*r*omega_theta
-            mat[1,4] =  np.cos(alpha) * 2*r*omega_theta
-            c2s.append(np.linalg.norm(-self.K_lin_fb + mat))
-
-        c2s = np.array(c2s)
-        if not np.all(np.isclose(c2s, c2s[0])):
-            raise ValueError("c2s are not equal for different alpha values.")
-        c2 = c2s[0]
-
-        # Calculate c3
-        traj_2der = 0.1
-        traj_2der = np.linalg.norm(b, 2) / np.linalg.norm(A @ Minv, 2) * 0.4
-        c3 = np.linalg.norm(b, 2) / np.linalg.norm(A @ Minv, 2) - traj_2der
-
-        ctemp = np.zeros((5,5)); ctemp[4,4] = 2*c1*c2
-        C = np.eye(5) * c2**2 + ctemp
-
-        """
-        Now, the condition e^T C e <= c3**2 is ready to be fulfilled
+        Now, the condition e^T C e <= c1**2 is ready to be fulfilled
         """
         constraints.append(get_s_procedure_constraint(self.P_lin_fb, None, -upper_bound,
-                                                        C, None, -c3.item()**2, 
+                                                        C, None, -c1.item()**2, 
                                                         lam))
 
         # Solve the problem
@@ -190,5 +193,16 @@ class TerminalIncredients:
     
 if __name__ == "__main__":
     model = get_faulty_ff_spiral()
-    term = TerminalIncredients(model)
+
+    params = read_ros_parameter_file("spiral_mpc_lin.yaml", "tuning", "P1")
+    term = TerminalIncredients(model, params)
+
+    term.get_termimal_cost()
+    t_set = term.calculate_terminal_set()
+
+    print(t_set)
+    import matplotlib.pyplot as plt
+    t_set.plot_slice([2, 3, 4])
+    plt.show()
+
     breakpoint()

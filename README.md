@@ -66,6 +66,7 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 - [x] Fix rest of code s.t. eMPC runs
 - [x] Add state publisher code for eMPC
 - [ ] Take care of linMPC terminal set
+- [ ] Check SML updates and with Taffarel
 - [ ] Wasn't there something small wrong with the implementation of the cost function of something?
 - [ ] implement reactive mode
 
