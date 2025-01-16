@@ -267,30 +267,23 @@ class explicitMPCTerminalIngredients:
         return terminal_cost, covered_area
 
     def calculate_terminal_ingredients(self, calculate_empc=True):
-        if calculate_empc:
-            # Calculate the bounds for the linear controllers (omega & empc)
-            u_bound = self.calculate_empc_input_bounds()
-            self.u3max =  u_bound[2]
-            self.u3min = -u_bound[2]
-            u1max = u_bound[0]/np.sqrt(2)
-            u2max = u_bound[1]/np.sqrt(2)
-            uimax = max(u1max, u2max)
+        # Calculate the bounds for the linear controllers (omega & empc)
+        u_bound = self.calculate_empc_input_bounds()
+        self.u3max =  u_bound[2]
+        self.u3min = -u_bound[2]
+        u1max = u_bound[0]/np.sqrt(2)
+        u2max = u_bound[1]/np.sqrt(2)
+        uimax = max(u1max, u2max)
 
-            # Calculate the explicit MPC and cost
-            # empc_horizon = 10
-            # empc_horizon = 15
-            # time_scaling = 5
-            empc_horizon = self.tuning["empc_horizon"]
-            time_scaling = self.tuning["time_scaling"]
-            empc = self.calculate_empc(uimax, empc_horizon, time_scaling)
-        else:
-            empc = ModelPredictiveController.import_explicit_solution(
-                                                        "controllers/explicitMPC_and_tuning/explMPC/expl_MPC_2dim_horz_2.yaml")
-                                                        # "./explMPC/expl_MPC_2dim_horz_2.yaml")
+        # Calculate the explicit MPC and cost
+        empc_horizon = self.tuning["empc_horizon"]
+        time_scaling = self.tuning["time_scaling"]
+        empc = self.calculate_empc(uimax, empc_horizon, time_scaling)
 
         # calculate bound and terminal set for respective layer
         costs, sets = [], []
         t_cost, t_set = self.bound_empc_cost(empc)
+        # appended twice as the same cost is used for both x- and y-direction
         costs.append(t_cost)
         costs.append(t_cost)
         sets.append(t_set)

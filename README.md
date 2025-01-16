@@ -25,6 +25,10 @@ The trajectories can be set by publishing to the topic `/trajectory_commands`. T
 > ```
 > or the desired setpoint can be slightly altered to fit the center point better by setting `traj_shape: "hover_0_0.333_0"`.
 
+```
+vim /home/raphael/PX4-Space-Systems/build/px4_sitl_default/rootfs/etc/init.d-posix/airframes/71002_gz_spacecraft_2d
+```
+
 ## Setup for the MPC controller where the terminal controller is based on eMPC
 In order to run the controller, the cost functions and terminal sets need to be pre-calculated first. This can be done calling
 ```
@@ -62,23 +66,8 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 
 # ToDos
 
-**NowNow**
-- [x] Fix rest of code s.t. eMPC runs
-- [x] Add state publisher code for eMPC
-- [ ] Take care of linMPC terminal set
-- [ ] Check SML updates and with Taffarel
 - [ ] Wasn't there something small wrong with the implementation of the cost function of something?
 - [ ] implement reactive mode
-
-**Now**
-- [x] Check terminal constraint in spiral linearizing MPC!!!
-- [ ] Check proof for derivation of spiraling MPC!!! 
-        - see comment in terminal_incredients_linearizing!!!
-        - Why do I have `alpha/3` in spiral_mpc_1, build_solver???
-- [ ] remove `recalculate_terminal_ingredients` from all files && check README
-
-
-TODO add a timer for the calculation of the terminal sets
 
 **Next steps**
 - [x] Spiraling node
@@ -97,6 +86,7 @@ TODO add a timer for the calculation of the terminal sets
 **Code clean up**
 - [ ] Remove option for `trajectory_tracking=False`
 - [ ] Decide what to do with alternative to `spiral_5` (linearizing Spiral MPC)
+- [ ] remove `recalculate_terminal_ingredients` from all files && check README
 - [ ] Check code for unnecessary lines / commented out stuff to be deleted / ...
 - [ ] The field `traj_duration` is completely ignored anyways
 - [ ] Rename classes 
@@ -110,11 +100,22 @@ TODO add a timer for the calculation of the terminal sets
 - [ ] Generalization to 3D?
 - [ ] Add a setup.py file where the db is calculated?
 
+**Check for paper**
+- [ ] Check: The resulting linearized system is pretty easy (double integrator)
+        -> There should be some results concerning this system under input constraints
+        -> Has anyone tried to use these results for calculating terminal sets?
+        -> That might be computationally much more efficient
+        -> Requirement is of course that a valid cost function is available
+- [ ] For the spiralingMPC_eMPC cost, the bounding of the eMPC cost is done by sampling and overapproximating the eMPC cost. Is there a better way to do it?
+
 **Done**
 - [x] how to load trajectories?
 - [x] Create a damage simulation node
 - [x] Find a solution to the jump of the angle for the MPC
-- [x] Check again with the bounds for the optimization in basic MPC!!!
+- [x] Fix rest of code s.t. eMPC runs
+- [x] Add state publisher code for eMPC
+- [x] Take care of linMPC terminal set [x] Check again with the bounds for the optimization in basic MPC!!!
+- [x] Check terminal constraint in spiral linearizing MPC!!!
 
 # Notes
 
@@ -138,4 +139,14 @@ _Attention_: This is _not_ the `pympc` package from pip, but the one with the sa
 ```
 git clone git@github.com:TobiaMarcucci/pympc.git
 pip install ./pympc
+```
+
+Add gazebo worlds under
+```
+/home/raphael/PX4-Space-Systems/Tools/simulation/gz/worlds/
+```
+collada (mesh) files can be added in the mesh folder and referenced as in the myworld.sdf
+Change world file using
+```
+vim /home/raphael/PX4-Space-Systems/build/px4_sitl_default/rootfs/etc/init.d-posix/airframes/71002_gz_spacecraft_2d
 ```
