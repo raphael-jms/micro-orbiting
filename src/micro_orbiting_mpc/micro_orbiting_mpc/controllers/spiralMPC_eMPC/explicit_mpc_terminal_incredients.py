@@ -4,6 +4,8 @@ import casadi as ca
 import matplotlib.pyplot as plt
 import itertools
 import subprocess
+import scipy.linalg as la
+import yaml
 
 from micro_orbiting_mpc.util.utils import read_yaml_matrix, read_yaml
 from micro_orbiting_mpc.util.polytope import MyPolytope
@@ -118,7 +120,6 @@ class explicitMPCTerminalIngredients:
         """
         assert xSet.Nx == 2 and ySet.Nx == 2
 
-        print(xSet.b)
         A = np.vstack((
             np.hstack((  xSet.A[:,0].reshape(-1,1), np.zeros((xSet.Nc, 1)), xSet.A[:,1].reshape(-1,1), np.zeros((xSet.Nc, 2))  )),
             np.hstack((  np.zeros((ySet.Nc, 1)), ySet.A[:,0].reshape(-1,1), np.zeros((ySet.Nc, 1)), ySet.A[:,1].reshape(-1,1), np.zeros((ySet.Nc, 1))  )),
@@ -289,53 +290,42 @@ class explicitMPCTerminalIngredients:
         sets.append(t_set)
         sets.append(t_set)
 
-        ## Calculate the complete cost
-        t = sp.symbols('t', real=True)
+        # Calculate the complete cost
         e0_1, e0_2, e0_3, e0_4, e0_5 = sp.symbols('e0_1 e0_2 e0_3 e0_4 e0_5')
-        e5 = sp.exp(-self.k_omega*t) * e0_5
-        u_omega = -self.k_omega * e5
-        f_e = e5*self.r*(e5 + 2*self.omega_theta)
 
+        # cost_empc
         err_x = sp.Matrix([e0_1, e0_3])
         err_y = sp.Matrix([e0_2, e0_4])
         assert np.abs(costs[0]['c']) < 0.0001 # Actually, it should be zero
-        cost_empc  = err_x.T @ sp.Matrix(costs[0]['xx']) @ err_x + sp.Matrix(costs[0]['x']).T @ err_x #+ sp.Matrix([[costs[0]['c']]])
-        cost_empc += err_y.T @ sp.Matrix(costs[1]['xx']) @ err_y + sp.Matrix(costs[1]['x']).T @ err_y #+ sp.Matrix([[costs[1]['c']]])
-        # make scalar
-        cost_empc = cost_empc[0, 0]
+        cost_empc  = err_x.T @ sp.Matrix(costs[0]['xx']) @ err_x + sp.Matrix(costs[0]['x']).T @ err_x #+ sp.Matrix([[costs[0]['c']])
+        cost_empc += err_y.T @ sp.Matrix(costs[1]['xx']) @ err_y + sp.Matrix(costs[1]['x']).T @ err_y #+ sp.Matrix([[costs[1]['c']])
+        cost_empc = cost_empc[0, 0] # make scalar
 
         q1, q2, qomega = self.Q[0, 0], self.Q[1, 1], self.Q[4, 4]
 
-        integration_bounds = (t, 0, sp.S.Infinity)
+        # cost_e5
+        A_e5_subsystem = np.array([[1 - self.k_omega * self.model.dt]])
+        P_e5_subsystem = la.solve_discrete_lyapunov(A_e5_subsystem, np.array([[qomega]])).item()
+        cost_e5 = e0_5**2 * P_e5_subsystem
 
-        cost_e5 = qomega * sp.integrate(e5**2, integration_bounds)
-        # cost_cross_term = 2 * np.sqrt(u1max**2 + u2max**2) * self.mass**2 * \
-        #     sp.integrate(q1 * self.r * u_omega + q2 * f_e, integration_bounds)
-        # cost_cross_term = cost_cross_term**2 # lazy bound, also only correct for cross_term>=1
-        # cost_cross_term = sp.Abs(cost_cross_term)
-        # cost_cross_term = 2 * np.sqrt(u1max**2 + u2max**2) * self.mass**2 * q1 * 
-            # self.r * sp.integrate(e5**2, integration_bounds)
-            # sp.integrate( (e5 + self.omega_theta * self.r - self.k_omega * self.r /2 )**2, integration_bounds)
-            # ( sp.integrate(sp.exp(-self.k_omega*t), integration_bounds) * sp.Abs(-self.k_omega*self.r + 2*self.omega_theta*self.r) * sp.Abs(e0_5) 
-            #  + sp.integrate(sp.exp(-self.k_omega*t)**2, integration_bounds) * e0_5**2  )
-
+        # cross term
         approx_abs_e0_5 = e0_5 * sp.tanh(e0_5/0.1)
         cross_term_constant = 2 * np.sqrt(u1max**2 + u2max**2) * self.mass**2 * q1 * self.r
-        cross_term_var = sp.integrate(sp.exp(-2 * self.k_omega * t), integration_bounds) * e0_5**2 \
-                         + sp.integrate(sp.exp(-self.k_omega * t), integration_bounds) * (2*sp.Abs(self.omega_theta) + self.k_omega) * approx_abs_e0_5
-                        #  + sp.integrate(sp.exp(-self.k_omega * t), integration_bounds) * (2*sp.Abs(self.omega_theta) + self.r*self.k_omega) * approx_abs_e0_5
-                        #  + sp.integrate(sp.exp(-self.k_omega * t), integration_bounds) * (2*sp.Abs(self.omega_theta) + self.r*self.k_omega) * sp.Abs(e0_5)
-
-        cost_cross_term = cross_term_constant * cross_term_var 
+        cross_term_var = e0_5**2 / ( 1 - (1-self.k_omega)**2 ) \
+                        + (self.k_omega + 2 * sp.Abs(self.omega_theta)) / self.k_omega * approx_abs_e0_5
+        cost_cross_term = cross_term_constant * cross_term_var
+        
+        # feedback term
         fb_factor = self.matrix_2_norm(sp.Matrix(self.Minv.T @ self.R @ self.Minv))
-        cost_fb_lin = 2 * fb_factor * (sp.integrate(f_e**2, integration_bounds)
-                                       + sp.integrate(u_omega**2, integration_bounds))
+        P_K = la.solve_discrete_lyapunov(A_e5_subsystem, np.array([[1]])).item()
+        cost_fb_lin = 2 * fb_factor * (
+            e0_5**2 * P_K
+            + (2*self.omega_theta*self.r)**2 / (1 - (1-self.k_omega)**2 ) * e0_5**2
+            + (4*self.omega_theta*self.r) / ( 1 - (1-self.k_omega)**3 ) * e0_5**3
+            + self.r**2 / ( 1 - (1-self.k_omega)**4 ) * e0_5**4
+        )
 
-        print(f"cost_e5: {cost_e5}")
-        print(f"cross_term: {cost_cross_term}")
-        print(f"cost_fb+lin: {cost_fb_lin}")
-
-        self.terminal_cost = cost_empc + (cost_e5 + cost_cross_term + cost_fb_lin) * self.model.dt
+        self.terminal_cost = cost_empc + cost_e5 + cost_cross_term + cost_fb_lin
         self.terminal_cost_function = sp.lambdify((e0_1, e0_2, e0_3, e0_4, e0_5), self.terminal_cost)
 
         ## Calculate the terminal sets
@@ -460,22 +450,17 @@ class explicitMPCTerminalIngredients:
         plt.show()
 
 if __name__ == "__main__":
-    from util.cost_handler import CostHandler
-    from util.get_example import get_faulty_ff_full
+    from micro_orbiting_mpc.util.get_example import get_faulty_ff_full
 
-    cost_handler = CostHandler()
-    cost_handler.create_table()
     sys = get_faulty_ff_full()
-    ti = explicitMPCTerminalIngredients(sys)
-    ti.calculate_terminal_ingredients()
+    tuning = {
+        "max_acceleration" : 0,
+        "k_omega" : 1,
+        "Q" : [1, 1, 1, 1, 1],
+        "R" : [1, 1, 1]
+    }
+    ti = explicitMPCTerminalIngredients(sys, tuning)
+    ti.calculate_terminal_ingredients(calculate_empc=False)
     code = ti.create_python_code(ti.terminal_cost)
-    cost_handler.set_cost_fcn(code, ti.terminal_set, sys)
 
-    # check
-    tcost, tset = cost_handler.get_cost_fcn(sys)
-    print(tcost(1,1,1,1,1))
-    print(ti.terminal_cost_function(1,1,1,1,1))
-
-    print(tset)
-    print(ti.terminal_set)
-
+    breakpoint()

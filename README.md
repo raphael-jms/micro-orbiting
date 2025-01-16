@@ -129,7 +129,7 @@ and run with
 ros2 run plotjuggler plotjuggler
 ```
 
-## Simulationn parameters Gazebo
+## Simulation parameters Gazebo
 ```
 ~/.gz/fuel/fuel.gazebosim.org/proque/models/kth_freeflyer/1/model.sdf
 ```
@@ -141,6 +141,7 @@ git clone git@github.com:TobiaMarcucci/pympc.git
 pip install ./pympc
 ```
 
+# Add gazebo worlds
 Add gazebo worlds under
 ```
 /home/raphael/PX4-Space-Systems/Tools/simulation/gz/worlds/
@@ -149,4 +150,12 @@ collada (mesh) files can be added in the mesh folder and referenced as in the my
 Change world file using
 ```
 vim /home/raphael/PX4-Space-Systems/build/px4_sitl_default/rootfs/etc/init.d-posix/airframes/71002_gz_spacecraft_2d
+```
+
+# If simulation is not starting after running before
+```
+ps aux | grep gz
+> raphael     7122 10.1  1.0 1862636 171796 pts/2  Sl   16:07   1:16 gz sim --verbose=1 -r -s /home/raphael/PX4-Space-Systems/Tools/simulation/gz/worlds/default.sdf
+> raphael    11689  0.0  0.0  21068  2432 pts/2    S+   16:19   0:00 grep --color=auto gz
+kill -9 7122
 ```
