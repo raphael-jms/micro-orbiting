@@ -183,7 +183,8 @@ class FreeFlyerDynamicsSimplified:
         :param percentage: value of the actuator fault (0-1)
         :type percentage: float
         """
-        idx = (pos[0]-1)*2 + (pos[1]-1)
+        # idx = (pos[0]-1)*2 + (pos[1]-1)
+        idx = self.act_pos2idx(pos)
         self.failed_actuators.append({"pos_ids": pos, "intensity": percentage, "idx": idx})
 
         self.u_ub_physical[idx] = 0
@@ -212,7 +213,8 @@ class FreeFlyerDynamicsSimplified:
             if max_input == 0:
                 # Faulty inputs are the ones where there is no max. (controllable) input
                 # Get the two indices for add_actuator_fault
-                idxs = [math.floor(i/2) + 1, i%2 + 1]
+                # idxs = [math.floor(i/2) + 1, i%2 + 1]
+                idxs = self.act_idx2pos(i)
                 self.add_actuator_fault(idxs, faulty_input[i]/self.max_force)
 
     def set_dynamics(self):
@@ -238,6 +240,12 @@ class FreeFlyerDynamicsSimplified:
         new_obj.set_dynamics()
 
         return new_obj
+
+    def act_pos2idx(self, pos):
+        return (pos[0]-1)*2 + (pos[1]-1)
+    
+    def act_idx2pos(self, idx):
+        return [math.floor(idx/2) + 1, idx%2 + 1]
 
     @property
     def m(self):

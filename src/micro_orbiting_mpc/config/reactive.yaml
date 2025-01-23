@@ -1,0 +1,46 @@
+/**:
+  ros__parameters:
+    mode: "reactive"
+    time_step: 0.1
+    trajectory_tracking: true
+    traj_shape: "hover"
+    traj_duration: 30
+    actuator_failures: 
+      - act_ids: [3,1]
+        intensity: 1
+        start_time: 0
+      - act_ids: [4,1]
+        intensity: 1
+        start_time: 0
+    tuning:
+      nominal:
+        param_set: "P1"
+        P1: 
+          Q: [10.0, 10.0, 10.0, 1.0, 1.0, 0.1]
+          R: [1.0, 1.0, 1.0]
+          R_full: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+          P_mult: 1.0  # P = P_mult * Q
+        P2: 
+          Q: [5.0, 5.0, 10.0, 0.2, 0.2, 0.1]
+          R: [1.0, 1.0, 1.0]
+          R_full: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+          P_mult: 1.0  # P = P_mult * Q
+      spiraling:
+        param_set: "P1"
+        P1:
+          Q: [1, 1, 1, 1, 0]
+          R: [0.1, 0.1, 0.01]
+          P_mult: 1
+          # Attention: The following parameters are only updated if the terminal set is recalculated!
+          k_omega: 1.0
+          max_acceleration: 0.0    
+          time_scaling: 5
+          empc_horizon: 10
+      fb_lin:
+        param_set: "P1"
+        P1:
+          Q: [5.0, 5.0, 0.2, 0.2, 100.0]
+          R: [1.0, 1.0, 1.0]
+          P_mult: 1.0
+          Q_linfb: [0.1, 0.1, 1.0, 1.0, 1.0]
+          R_linfb: [10.0, 10.0, 10.0] 

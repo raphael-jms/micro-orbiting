@@ -8,7 +8,7 @@ from px4_msgs.msg import ActuatorMotors
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.util.utils import read_ros_parameter_file
 from micro_orbiting_msgs.srv import SetActuatorFailure
-from micro_orbiting_msgs.msg import FailedActuators
+from micro_orbiting_msgs.msg import FailedActuators, FailedActuator
 
 class FaultInjectionNode(Node):
     """
@@ -99,10 +99,12 @@ class FaultInjectionNode(Node):
         """Publish the actuator faults."""
         msg = FailedActuators()
         for failed_actuator in self.model.failed_actuators:
-            msg.pos1.append(failed_actuator["pos_ids"][0])
-            msg.pos2.append(failed_actuator["pos_ids"][1])
-            msg.idx.append(failed_actuator["idx"])
-            msg.intensity.append(failed_actuator["intensity"])
+            act = FailedActuator()
+            act.pos1 = failed_actuator["pos_ids"][0]
+            act.pos2 = failed_actuator["pos_ids"][1]
+            act.idx = failed_actuator["idx"]
+            act.intensity = failed_actuator["intensity"]
+            msg.failed_actuators.append(act)
         self.fault_publisher.publish(msg)
 
     def apply_initial_faults(self):

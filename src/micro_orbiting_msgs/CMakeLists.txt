@@ -16,6 +16,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetActuatorFailure.srv"
   "msg/SetTrajectory.msg"
   "msg/ControllerValues.msg"
+  "msg/FailedActuator.msg"
   "msg/FailedActuators.msg"
   DEPENDENCIES geometry_msgs std_msgs
 )

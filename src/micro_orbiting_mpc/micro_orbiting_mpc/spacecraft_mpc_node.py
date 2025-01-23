@@ -70,6 +70,7 @@ from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull, \
 from micro_orbiting_mpc.controllers.spiralMPC_linearizing.spiral_mpc_v1 import SpiralMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
+from micro_orbiting_mpc.controllers.reactive_controller import ReactiveController
 from micro_orbiting_mpc.controllers.nominalMPC_no_faults.terminal_constraints_no_faults import get_terminal_constraints_no_faults
 from micro_orbiting_mpc.controllers.fb_linearizing_controller import FBLinearizingController
 from micro_orbiting_mpc.models.ff_input_bounds import SpiralParameters
@@ -128,8 +129,7 @@ class SpacecraftMPCNode(Node):
             'traj_duration': 30,
             'tuning': {
                 'P1': { 'Q': [1.0] * 6, 'R': [1.0] * 3, 'R_full': [1.0] * 8, 'P_mult': 1.0 },
-            },
-            'actuator_failures': []
+            }
         }
 
         # Helper function to flatten and declare parameters 
@@ -203,9 +203,8 @@ class SpacecraftMPCNode(Node):
 
         # Create model and controller
         match (self.mode):
-            case 'faultfree' | 'reactive' :
+            case 'faultfree' :
                 # faultfree:  Assumes nominal case without actuator failures, no way to react
-                # reactive: Assumes actuator failures can occur, but starts without any
                 self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
                 self.params = {
                     "horizon": self.horizon,
@@ -245,6 +244,15 @@ class SpacecraftMPCNode(Node):
                 # initialize SpiralModel
                 self.model = self.initialize_damaged_spiral_model()
                 self.controller = FBLinearizingController(self.model, self.tuning[self.param_set], self)
+            case 'reactive':
+                # reactive: Assumes actuator failures can occur during runtime
+                self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
+                self.params = {
+                    "horizon": self.horizon,
+                    "tuning": self.tuning
+                }
+                self.controller = ReactiveController(self.model, self.params, self.robot_parameters, 
+                                                     self.actuator_failures, self)
             case 'dummy':
                 # Dummy controller for testing
                 self.model = DummyModel()
@@ -346,24 +354,22 @@ class SpacecraftMPCNode(Node):
                                    f"'reactive'. Current mode is '{self.mode}'.")
             return response
 
-        for idx in range(len(request.actuators)):
+        for failure in request.failures:
             # Validate input
-            if not 0 <= request.intensity[idx] <= 1:
+            if not 0 <= failure.intensity <= 1:
                 self.get_logger().warn('Invalid intensity value')
                 return response
 
-            if not len(request.actuators[idx]) == 2:
-                self.get_logger().warn('Invalid number of actuators')
+            if failure.idx is None or (failure.pos1 is None and failure.pos2 is None):
+                self.get_logger().warn('Invalid described position of actuator')
                 return response
 
-            # Add actuator failure
-            try:
-                self.controller.add_actuator_fault(request.actuators[idx], request.intensity[idx])
-                self.get_logger().info(f'Registered actuator failure: [{request.actuators}], ' +
-                                    f'intensity: {request.intensity}')
-            except Exception as e:
-                self.get_logger().warn(f'Failed to set actuator failure: {str(e)}')
-                return response
+        # Add actuator failures
+        try:
+            self.controller.add_actuator_failures(request.failures)
+        except Exception as e:
+            self.get_logger().warn(f'Failed to set actuator failure: {str(e)}')
+            return response
 
         response.success = True
         return response

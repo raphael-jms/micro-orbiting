@@ -65,18 +65,34 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
                 Only use if faults should be present at start
 
 # ToDos
-
-- [ ] Wasn't there something small wrong with the implementation of the cost function of something?
 - [ ] implement reactive mode
+    - [ ] Write reactive class
+    - [ ] implement into spacecraft_mpc_node
+    - [ ] Write code o calculate terminal cost for all cases
+- [ ] Remove the parameter handling again?
+
+
+
+
+- start filtering actuator failures for start time
+    -> Only apply 0 ones directly
+    -> do this in both fault_simulation_node and spacecraft_mpc_node
+- behavior for fault_simulation_node :
+    1. apply the 0 ones directly
+    2. Listen to manually added ones
+    3. apply the non-0 ones from the launch file only if no manually ones have been added
+        *Alternative*: Modify the model so that it can handle changes in failures
+
+
+
+
+
+
+
+
+
 
 **Next steps**
-- [x] Spiraling node
-    - [x] Terminal constraint
-- [x] add config file for the robot
-- [x] Implement eMPC spiraling
-    - [x] Necessary callers
-    - [x] Terminal constraint
-    - [ ] Decide how to distribute: With or without database?
 - [ ] Not sure when: Add new arena to Gazebo simulation?
 - [ ] Implement reactive mode
         → should probably be part of the controller classes?
@@ -99,6 +115,7 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 - [ ] Add normalization of the error again?
 - [ ] Generalization to 3D?
 - [ ] Add a setup.py file where the db is calculated?
+- [ ] Decide how to distribute: With or without database?
 
 **Check for paper**
 - [ ] Check: The resulting linearized system is pretty easy (double integrator)
@@ -116,6 +133,12 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 - [x] Add state publisher code for eMPC
 - [x] Take care of linMPC terminal set [x] Check again with the bounds for the optimization in basic MPC!!!
 - [x] Check terminal constraint in spiral linearizing MPC!!!
+- [x] Spiraling node
+    - [x] Terminal constraint
+- [x] add config file for the robot
+- [x] Implement eMPC spiraling
+    - [x] Necessary callers
+    - [x] Terminal constraint
 
 # Notes
 
@@ -134,14 +157,14 @@ ros2 run plotjuggler plotjuggler
 ~/.gz/fuel/fuel.gazebosim.org/proque/models/kth_freeflyer/1/model.sdf
 ```
 
-# Install pympc
+## Install pympc
 _Attention_: This is _not_ the `pympc` package from pip, but the one with the same name by [Tobia Marcucci](https://www.ece.ucsb.edu/people/faculty/tobia-marcucci). Install with
 ```
 git clone git@github.com:TobiaMarcucci/pympc.git
 pip install ./pympc
 ```
 
-# Add gazebo worlds
+## Add gazebo worlds
 Add gazebo worlds under
 ```
 /home/raphael/PX4-Space-Systems/Tools/simulation/gz/worlds/
@@ -152,7 +175,7 @@ Change world file using
 vim /home/raphael/PX4-Space-Systems/build/px4_sitl_default/rootfs/etc/init.d-posix/airframes/71002_gz_spacecraft_2d
 ```
 
-# If simulation is not starting after running before
+## If simulation is not starting after running before
 ```
 ps aux | grep gz
 > raphael     7122 10.1  1.0 1862636 171796 pts/2  Sl   16:07   1:16 gz sim --verbose=1 -r -s /home/raphael/PX4-Space-Systems/Tools/simulation/gz/worlds/default.sdf

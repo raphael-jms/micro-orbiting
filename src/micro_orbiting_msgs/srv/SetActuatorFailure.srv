@@ -1,6 +1,5 @@
 # Request
-int8[2] positions
-float64 intensity
+FailedActuator[] failures
 builtin_interfaces/Time timestamp
 ---
 # Response
