@@ -73,6 +73,11 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 
 
 
+- [ ] add code to handle actuator failures in 0 /in /Interior case
+    - [ ] add compensation function
+    - [ ] different actuator limits
+    - [ ] control allocation? What about system fcn?
+
 
 - start filtering actuator failures for start time
     -> Only apply 0 ones directly

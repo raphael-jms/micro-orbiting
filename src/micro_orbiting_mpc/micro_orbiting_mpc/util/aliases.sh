@@ -1,3 +1,6 @@
+# Useful commands for interacting with the ROS2 package.
+# Source manually to command line or add `source /your_path/util/aliases.sh` to your bashrc file
+
 # General ROS2 shortcuts
 alias r2tl='ros2 topic list'
 alias r2nl='ros2 node list'
@@ -20,3 +23,67 @@ function bot_hover() {
 }
 alias viznode='ros2 run micro_orbiting_mpc viz_node'
 alias viz="tmux new-session \; split-window \; send-keys -t 0 \"viznode\" C-m \; send-keys -t 1 \"plotj\" C-m"
+
+# manually publish actuator failures
+pub_act_failure_idx() {
+    if [[ $# -lt 2 ]] || [[ $(($# % 2)) -ne 0 ]]; then
+        echo "Usage: publish_failed_actuator_idx idx1 intensity1 [idx2 intensity2 ...]"
+        return 1
+    fi
+    
+    local msg="{\"failed_actuators\": ["
+    while [ $# -gt 0 ]; do
+        local idx=$1
+        local intensity=$2
+        
+        if ! [[ $idx =~ ^[0-7]$ ]]; then
+            echo "Error: idx must be integer 0-7"
+            return 1
+        fi
+        if ! [[ $intensity =~ ^[0-1](\.[0-9]+)?$ ]] || (( $(echo "$intensity > 1" | bc -l) )); then
+            echo "Error: intensity must be float between 0-1"
+            return 1
+        fi
+        msg+="{idx: $idx, intensity: $intensity}" # pos1 and pos2 will be 0 by default 
+        shift 2
+        if [ $# -gt 0 ]; then
+            msg+=", "
+        fi
+    done
+    msg+="]}"
+    
+    echo $msg
+    ros2 topic pub --once /add_actuator_faults micro_orbiting_msgs/msg/FailedActuators "$msg"
+}
+
+pub_act_failure_pos() {
+   if [[ $# -lt 3 ]] || [[ $(($# % 3)) -ne 0 ]]; then
+       echo "Usage: publish_failed_actuator_pos pos1_1 pos2_1 intensity1 [pos1_2 pos2_2 intensity2 ...]" 
+       return 1
+   fi
+   
+   local msg="{\"failed_actuators\": ["
+   while [ $# -gt 0 ]; do
+       local pos1=$1
+       local pos2=$2
+       local intensity=$3
+       
+       if ! [[ $intensity =~ ^[0-1](\.[0-9]+)?$ ]] || (( $(echo "$intensity > 1" | bc -l) )); then
+           echo "Error: intensity must be float between 0-1"
+           return 1
+       fi
+       if ! [[ $pos1 =~ ^[1-4]$ ]] || ! [[ $pos2 =~ ^[1-2]$ ]]; then
+           echo "Error: pos values must be integer pos1 in [1,4], pos2 in [1,2] is pos1 $pos1 and pos2 $pos2."
+           return 1
+       fi
+       msg+="{intensity: $intensity, pos1: $pos1, pos2: $pos2}" # idx will be 0 by default 
+       shift 3
+       if [ $# -gt 0 ]; then
+           msg+=", "
+       fi
+   done
+   msg+="]}"
+   
+   echo $msg
+   ros2 topic pub --once /add_actuator_faults micro_orbiting_msgs/msg/FailedActuators "$msg"
+}

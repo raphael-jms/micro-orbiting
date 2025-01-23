@@ -41,6 +41,22 @@ def read_yaml(file_name, *keys):
 def read_ros_parameter_file(file_name, *keys):
     return read_yaml(file_name, *["/**", "ros__parameters"], *keys)
 
+def ensure_proper_fault_information(failure, model):
+    # If either index or position is provided, calculate the other one
+    if failure.idx != 0:  # non-default idx provided
+        calculated_pos = model.act_idx2pos(failure.idx)
+        if (failure.pos1 != 0 or failure.pos2 != 0) and [failure.pos1, failure.pos2] != calculated_pos:
+            raise ValueError(f"Inconsistent actuator failure information: {failure}")
+        failure.pos1, failure.pos2 = calculated_pos
+    elif failure.pos1 != 0 or failure.pos2 != 0:  # positions provided
+        failure.idx = model.act_pos2idx([failure.pos1, failure.pos2])   
+
+    # ensure that the fault is not already present
+    if any(actuator["idx"] == failure.idx for actuator in model.failed_actuators):
+        raise ValueError(f"Actuator fault for actuator [{failure.pos1}, {failure.pos2}]/idx {failure.idx} already present.")
+
+    return failure
+
 def read_yaml_matrix(file_path, *keys):
     diagonal = read_yaml(file_path, *keys)
     return np.diag(diagonal)

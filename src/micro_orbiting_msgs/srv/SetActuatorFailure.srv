@@ -1,5 +1,5 @@
 # Request
-FailedActuator[] failures
+FailedActuator[] failed_actuators
 builtin_interfaces/Time timestamp
 ---
 # Response

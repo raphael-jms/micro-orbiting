@@ -5,6 +5,7 @@ import time
 import matplotlib.pyplot as plt
 import time
 import random
+import pprint
 
 from micro_orbiting_msgs.msg import ControllerValues
 
@@ -36,7 +37,7 @@ class FancyMPC(GenericMPC):
         tuning = self.tuning[self.param_set]
         self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
                                                                        self.robot_params)
-        print(self.terminal_constraint)
+        self.logger.info(str(self.terminal_constraint))
 
     def build_solver(self):
         """
@@ -187,13 +188,13 @@ class FancyMPC(GenericMPC):
         # self.solver = ca.nlpsol('mpc_solver', 'ipopt', nlp, options)
         self.solver = ca.nlpsol('spiral_MPC_sol', 'ipopt', nlp, options)
 
-        print('\n________________________________________')
-        print(f"# Time to build mpc solver: {time.time() - build_solver_start} sec")
-        print(f"# Number of variables: {self.num_var}")
-        print(f"# Number of equality constraints: {num_eq_con}")
-        print(f"# Number of inequality constraints: {num_ineq_con}")
-        print(f"# Horizon steps: {self.Nt * self.dt}s into the future")
-        print('----------------------------------------')
+        self.logger.info('\n________________________________________')
+        self.logger.info(f"# Time to build mpc solver: {time.time() - build_solver_start} sec")
+        self.logger.info(f"# Number of variables: {self.num_var}")
+        self.logger.info(f"# Number of equality constraints: {num_eq_con}")
+        self.logger.info(f"# Number of inequality constraints: {num_ineq_con}")
+        self.logger.info(f"# Horizon steps: {self.Nt * self.dt}s into the future")
+        self.logger.info('----------------------------------------')
 
     def get_control(self, x0, t, input_is_in_center=False):
         if not input_is_in_center:
@@ -341,7 +342,6 @@ class FancyMPC(GenericMPC):
         msg.plan_y2 = [x[4].__float__() for x in x_plan]
         msg.plan_omega = [x[5].__float__() for x in x_plan]
 
-        print(e)
         msg.e1 = e[0].item()
         msg.e2 = e[1].item()
         msg.e3 = e[2].item()
@@ -381,7 +381,6 @@ class FancyMPC(GenericMPC):
 
         fig, axs = plt.subplots(c.shape[0], 1, figsize=(10, 10))
         plt_titles_c = self.data["c"].name
-        print(c.shape)
         for i in range(c.shape[0]):
             axs[i].step(time, c[i, :], where='post', label='center', color='blue')
             if traj.shape[0] > i:

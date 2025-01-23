@@ -47,6 +47,8 @@ import time
 from ament_index_python.packages import get_package_share_directory
 import os
 import casadi as ca
+import pprint
+import traceback
 
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
@@ -188,14 +190,14 @@ class SpacecraftMPCNode(Node):
             '/micro_orbiting/control_signal',
             # '/fmu/in/actuator_motors', 
             qos_profile)
-        self.predicted_path_pub = self.create_publisher(
-            Path, 
-            '/px4_mpc/predicted_path', 
-            10)
-        self.reference_pub = self.create_publisher(
-            Marker, 
-            "/px4_mpc/reference", 
-            10)
+        # self.predicted_path_pub = self.create_publisher(
+        #     Path, 
+        #     '/px4_mpc/predicted_path', 
+        #     10)
+        # self.reference_pub = self.create_publisher(
+        #     Marker, 
+        #     "/px4_mpc/reference", 
+        #     10)
         self.controller_stats_pub = self.create_publisher(
             ControllerValues,
             "/px4_mpc/controller_values",
@@ -301,7 +303,7 @@ class SpacecraftMPCNode(Node):
         # create services
         self.actuator_failure_sub = self.create_service(
             SetActuatorFailure,
-            'actuator_failure',
+            '/micro_orbiting/actuator_failure_internal',
             self.actuator_failure_callback)
 
         # wait_for_initial_trajectory() returns False if no trajectory is received within 5 seconds
@@ -354,7 +356,7 @@ class SpacecraftMPCNode(Node):
                                    f"'reactive'. Current mode is '{self.mode}'.")
             return response
 
-        for failure in request.failures:
+        for failure in request.failed_actuators:
             # Validate input
             if not 0 <= failure.intensity <= 1:
                 self.get_logger().warn('Invalid intensity value')
@@ -366,9 +368,10 @@ class SpacecraftMPCNode(Node):
 
         # Add actuator failures
         try:
-            self.controller.add_actuator_failures(request.failures)
+            self.controller.add_actuator_failures(request.failed_actuators)
         except Exception as e:
-            self.get_logger().warn(f'Failed to set actuator failure: {str(e)}')
+            self.get_logger().warn(f'Failed to set actuator failure: {str(e)}' + \
+                                   f'\n{traceback.format_exc()}')   
             return response
 
         response.success = True

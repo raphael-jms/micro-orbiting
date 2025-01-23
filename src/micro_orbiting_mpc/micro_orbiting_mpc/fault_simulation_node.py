@@ -6,7 +6,7 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, QoS
 from px4_msgs.msg import ActuatorMotors
 
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
-from micro_orbiting_mpc.util.utils import read_ros_parameter_file
+from micro_orbiting_mpc.util.utils import read_ros_parameter_file, ensure_proper_fault_information
 from micro_orbiting_msgs.srv import SetActuatorFailure
 from micro_orbiting_msgs.msg import FailedActuators, FailedActuator
 
@@ -68,10 +68,17 @@ class FaultInjectionNode(Node):
         self.apply_initial_faults()
 
         # Create subscribers, publishers and services
-        self.subscription = self.create_subscription(
+        self.control_signal_sub = self.create_subscription(
             ActuatorMotors,
             '/micro_orbiting/control_signal',
             self.control_signal_callback,
+            qos_profile
+        )
+
+        self.add_failure_sub = self.create_subscription(
+            FailedActuators,
+            '/add_actuator_faults',
+            self.add_failure_callback,
             qos_profile
         )
 
@@ -87,10 +94,9 @@ class FaultInjectionNode(Node):
             qos_profile
         )
 
-        self.fault_service = self.create_service(
+        self.set_fault_with_controller = self.create_client(
             SetActuatorFailure,
-            '/add_actuator_faults',
-            self.add_fault_callback
+            '/micro_orbiting/actuator_failure_internal'
         )
 
         self.timer = self.create_timer(1.0, self.publish_actuator_faults_callback)
@@ -138,18 +144,32 @@ class FaultInjectionNode(Node):
         # Publish the modified control signal
         self.full_control_publisher.publish(output_msg)
 
-    def add_fault_callback(self, request: SetActuatorFailure.Request, 
-                          response: SetActuatorFailure.Response):
-        """Service callback to add new faults."""
+    def add_failure_callback(self, msg):
+        """Subscriber to add new faults."""
         try:
-            self.model.add_actuator_fault(request.positions, request.intensity)
-            response.success = True
+            for failure in msg.failed_actuators:
+                failure = ensure_proper_fault_information(failure, self.model)                   
+
+                # add to model
+                self.model.add_actuator_fault([failure.pos1, failure.pos2], failure.intensity)
+            
+            srv = SetActuatorFailure.Request()
+            srv.failed_actuators = msg.failed_actuators
+
+            def handle_response(future):
+                try:
+                    response = future.result()
+                    if not response.success:
+                        self.get_logger().error("Service call failed")
+                except Exception as e:
+                    self.get_logger().error(f"Service call error: {e}")
+
+            future = self.set_fault_with_controller.call_async(srv)
+            future.add_done_callback(handle_response)
+
         except Exception as e:
             self.get_logger().error(f"Failed to add fault: {e}")
-            response.success = False
         
-        return response
-
 def main(args=None):
     rclpy.init(args=args)
     node = FaultInjectionNode()

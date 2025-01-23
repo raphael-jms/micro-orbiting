@@ -166,9 +166,9 @@ class RealTimeVisualizer(Node):
     
     def failed_forces_callback(self, msg):
         self.failed_actuator_forces = np.zeros(8)
-        for i in range(len(msg.idx)):
-            idx = msg.idx[i]
-            self.failed_actuator_forces[idx] = msg.intensity[i] * self.max_force
+        for failure in msg.failed_actuators:
+            idx = failure.idx
+            self.failed_actuator_forces[idx] = failure.intensity * self.max_force
 
     def update_plot(self):
         # Calculate rotated offsets for rectangle position
