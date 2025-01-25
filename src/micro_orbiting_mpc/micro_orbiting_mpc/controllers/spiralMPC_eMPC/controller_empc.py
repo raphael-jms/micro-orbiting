@@ -11,8 +11,13 @@ from micro_orbiting_msgs.msg import ControllerValues
 
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved, SpiralParameters, PlottingHelper
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
-from micro_orbiting_mpc.util.utils import LogData, Rot3Inv
+from micro_orbiting_mpc.util.utils import LogData, Rot3Inv, Rot3
 from micro_orbiting_mpc.util.cost_handler import CostHandler
+
+# Was the other way before
+RobotToCenterRot = Rot3Inv 
+CenterToRobotRot = Rot3
+
 
 class FancyMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
@@ -25,6 +30,8 @@ class FancyMPC(GenericMPC):
         self.spiral_params = SpiralParameters(model)
         self.robot_params = robot_params
 
+        self.use_terminal_set = False
+
         super().__init__(model, params, ros_node)
 
     def set_cost_functions(self):
@@ -34,10 +41,11 @@ class FancyMPC(GenericMPC):
         # The terminal cost is different for the spiraling case; overwrite it
         ch = CostHandler()
 
-        tuning = self.tuning[self.param_set]
-        self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
-                                                                       self.robot_params)
-        self.logger.info(str(self.terminal_constraint))
+        if self.use_terminal_set:
+            tuning = self.tuning[self.param_set]
+            self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
+                                                                        self.robot_params)
+            self.logger.info(str(self.terminal_constraint))
 
     def build_solver(self):
         """
@@ -90,13 +98,16 @@ class FancyMPC(GenericMPC):
         # Bounds on x
         xub = self.get_param("xub")
         xlb = self.get_param("xlb")
-        # Bounds on u
+        # Bounds on u in rob_local system
         ChullMat, ChullVec = self.bounds.get_conv_hull() # A, b
+        # Calculate instead in force-aligned system
+        beta = self.spiral_params.beta
+        ChullMat = ChullMat @ CenterToRobotRot(beta - np.pi/2)
 
         # Compensating input to get the virtual incontrollable force, not the pysical one
-        u_comp = self.spiral_params.compensation_force
+        u_comp = RobotToCenterRot(beta - np.pi/2) @ self.spiral_params.compensation_force
         self.u_comp = u_comp
-        u_uncontrolled = self.model.faulty_input_simple.flatten()
+        u_uncontrolled = RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()
 
         # Generate MPC Problem
         for t in range(self.Nt):
@@ -152,15 +163,18 @@ class FancyMPC(GenericMPC):
         # Terminal Cost
         e_N = x_t[0:self.Nopt] - x_r
 
-        # # Terminal Constraint
-        # That actually does not do what I want: The eMPC is still in the terminal cost calculation, so I need to recalculate the cost with the corrected cost values
-        # obj += self.terminal_cost(*ca.vertsplit(e_N)) * self.dt
-        obj += self.terminal_cost(*ca.vertsplit(e_N))
+        if self.use_terminal_set:
+            # # Terminal Constraint
+            # That actually does not do what I want: The eMPC is still in the terminal cost calculation, so I need to recalculate the cost with the corrected cost values
+            # obj += self.terminal_cost(*ca.vertsplit(e_N)) * self.dt
+            obj += self.terminal_cost(*ca.vertsplit(e_N))
 
-        con_t = self.terminal_constraint
-        con_ineq.append(ca.mtimes(con_t.A, e_N))
-        con_ineq_lb.append(-ca.inf * np.ones_like(con_t.b))
-        con_ineq_ub.append(con_t.b)
+            con_t = self.terminal_constraint
+            con_ineq.append(ca.mtimes(con_t.A, e_N))
+            con_ineq_lb.append(-ca.inf * np.ones_like(con_t.b))
+            con_ineq_ub.append(con_t.b)
+        else:
+            obj += ca.transpose(e_N) @ ca.DM(np.diag([100, 100, 100, 100, 1000])) @ e_N
 
         # Equality constraints are reformulated as inequality constraints with 0<=g(x)<=0
         # -> Refer to CasADi documentation: NLP solver only accepts inequality constraints
@@ -240,8 +254,9 @@ class FancyMPC(GenericMPC):
         
         u_phys = self.ih.get_physical_input(u_res)
 
-        print(f"error {self.model.faulty_input_simple.flatten()}")
-        print(f"np.array(u[0]).flatten() \t {np.array(u[0]).flatten()} + \n u_nom_alpha_corrected \t {u_nom_alpha_corrected} + \n self.u_comp \t\t {self.u_comp} \n = u_res \t\t\t {u_res}")
+        beta = self.spiral_params.beta
+        print(f"error {RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()}")
+        print(f"np.array(u[0]).flatten() \t {RobotToCenterRot(beta - np.pi/2) @ np.array(u[0]).flatten()} + \n u_nom_alpha_corrected \t {RobotToCenterRot(beta - np.pi/2) @ u_nom_alpha_corrected} + \n self.u_comp \t\t {self.u_comp} \n = u_res \t\t\t {RobotToCenterRot(beta - np.pi/2) @ u_res}")
 
         self.publish_last_controller_values(
             t,
@@ -258,6 +273,10 @@ class FancyMPC(GenericMPC):
             c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten(),
             u_phys
         )
+
+        beta = self.spiral_params.beta
+        u_res = CenterToRobotRot(beta - np.pi/2) @ u_res
+        u_phys = self.ih.get_physical_input(u_res)
 
         if self.plot_plannned_traj and abs(t%1)<0.075:
             colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']

@@ -28,7 +28,8 @@ setup(
             'spacecraft_mpc_node = micro_orbiting_mpc.spacecraft_mpc_node:main',
             'trajectory_init_node = micro_orbiting_mpc.init_node:main',
             'fault_simulation_node = micro_orbiting_mpc.fault_simulation_node:main',
-            'viz_node = micro_orbiting_mpc.viz_node:main'
+            'viz_node = micro_orbiting_mpc.viz_node:main',
+            'viz_plan = micro_orbiting_mpc.viz_plan:main',
             # 'spacecraft_mpc_node = spacecraft_mpc_node:main'
         ],
     },

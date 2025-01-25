@@ -4,8 +4,10 @@ import math
 import copy
 
 from micro_orbiting_mpc.models.ff_input_bounds import PlottingHelper, SpiralParameters
-from micro_orbiting_mpc.util.utils import read_yaml
+from micro_orbiting_mpc.util.utils import read_yaml, Rot3, Rot3Inv
 
+RobotToCenterRot = Rot3Inv
+CenterToRobotRot = Rot3
 
 class FreeFlyerDynamicsSimplified:
     def __init__(self, dt, robot_params=None) -> None:
@@ -348,6 +350,7 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         The control input is defined as: u_{ij}
         """
         alpha = c[5]
+        beta = self.spiral_params.beta
         omega = c[4]
 
         R = ca.MX.zeros(3, 3)
@@ -364,7 +367,8 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         # Rinv[1, 1] = ca.cos(alpha)
         # Rinv[2, 2] = 1
 
-        [Fx_res, Fy_res, T_res] = ca.vertsplit(u + self.faulty_input_simple)
+        faulty_input_center = RobotToCenterRot(beta- np.pi/2) @ self.faulty_input_simple
+        [Fx_res, Fy_res, T_res] = ca.vertsplit(u + faulty_input_center)
 
         c_vdot = R @ ca.vertcat(Fx_res/self.mass - T_res*self.r/self.J, 
                                 Fy_res/self.mass - self.r * omega**2, 
