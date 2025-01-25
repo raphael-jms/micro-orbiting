@@ -377,12 +377,13 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         Transform the state of the robot to the state of the center point of the spiral.
         """
         alpha = x[2]
+        beta = self.spiral_params.beta
         omega = x[5]
 
-        c1 = x[0] - self.r * ca.sin(alpha)
-        c2 = x[1] + self.r * ca.cos(alpha)
-        c3 = x[3] - self.r * omega * ca.cos(alpha)
-        c4 = x[4] - self.r * omega * ca.sin(alpha)
+        c1 = x[0] + self.r * ca.cos(alpha+beta)
+        c2 = x[1] + self.r * ca.sin(alpha+beta)
+        c3 = x[3] - self.r * omega * ca.sin(alpha+beta)
+        c4 = x[4] + self.r * omega * ca.cos(alpha+beta)
 
         return ca.vertcat(c1, c2, c3, c4, omega, alpha)
 
@@ -391,11 +392,12 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         Transform back from the center to the robot
         """
         alpha = c[5]
+        beta = self.spiral_params.beta
         omega = c[4]
 
-        x1 = c[0] + self.r * ca.sin(alpha)
-        y1 = c[1] - self.r * ca.cos(alpha)
-        x2 = c[2] + self.r * omega * ca.cos(alpha)
-        y2 = c[3] + self.r * omega * ca.sin(alpha)
+        x1 = c[0] - self.r * ca.cos(alpha+beta)
+        y1 = c[1] - self.r * ca.sin(alpha+beta)
+        x2 = c[3] + self.r * omega * ca.sin(alpha+beta)
+        y2 = c[4] - self.r * omega * ca.cos(alpha+beta)
 
         return ca.vertcat(x1, y1, alpha, x2, y2, omega)
