@@ -31,7 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--yes', action='store_true', help='Confirm all questions')
     parser.add_argument('--resolution', type=int, default=4, help='Number of cases considered per thruster')
     parser.add_argument('--db_name', type=str, default='spiralMPC_empc_cost.db', help='Name of the database')
-    parser.add_argument('--just_test_case', action='store_true', help='Calculate test the case (F31,1), (F41,1)')
+    parser.add_argument('--just_param_file_case', action='store_true', help='Calculate only the case specified in the parameter file')
 
     parser.add_argument('--tuning_file', type=str, default='spiral_mpc_empc.yaml', help='Path to the tuning file')
     parser.add_argument('--robot_param_file', type=str, default='robot_parameters_gazebo.yaml', help='Path to the robot parameter file')
@@ -70,12 +70,12 @@ if __name__ == "__main__":
         cost_handler.create_table(overwrite=True)
 
     # Create the cost functions
-    if args.just_test_case:
+    if args.just_param_file_case:
         start_t = time.time()
 
         model = FreeFlyerDynamicsFull(tuning_params["time_step"], system_params)
-        model.add_actuator_fault([3,1], 1)
-        model.add_actuator_fault([4,1], 1)
+        for act in tuning_params["actuator_failures"]:
+            model.add_actuator_fault(act['act_ids'], act['intensity'])
         calculate_cost_fcn(model, cost_handler, tuning_params["tuning"][tuning_params["param_set"]],
                            system_params)
 
@@ -83,3 +83,6 @@ if __name__ == "__main__":
         print("*"*41 + f"\n\n\tTime taken: {str(elapsed).split('.')[0]} h:m:s\n\n" + "*"*41)
 
         exit()
+
+    raise NotImplementedError("This script is not implemented fully yet. Please use the --just_param_file_case flag.")
+    # TODO: Iterate over all combinations of actuator failures and calculate the cost functions

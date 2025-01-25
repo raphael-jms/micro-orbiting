@@ -31,9 +31,15 @@
         k_omega: 0.1
         max_acceleration: 0.0    
     actuator_failures: 
-      - act_ids: [3,1]
+      # - act_ids: [3,1]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [4,1]
+      #   intensity: 1
+      #   start_time: 0
+      - act_ids: [1,1]
         intensity: 1
         start_time: 0
-      - act_ids: [4,1]
+      - act_ids: [2,1]
         intensity: 1
         start_time: 0

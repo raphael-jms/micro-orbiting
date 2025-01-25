@@ -221,7 +221,8 @@ class FancyMPC(GenericMPC):
         # c, u, slv_time, cost, slv_status = [1], [[0, 0, 0]], 3, 4, 5
         # u_res = u_nom_alpha_corrected + self.u_comp
 
-        if True:
+        # if True:
+        if False:
             self.data["x"].add_data(t, x0)
             self.data["u"].add_data(t, u_res)
             self.data["u_nom"].add_data(t, u_nom_alpha_corrected)
@@ -238,6 +239,9 @@ class FancyMPC(GenericMPC):
             self.data['ce'].add_data(t, c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
         
         u_phys = self.ih.get_physical_input(u_res)
+
+        print(f"error {self.model.faulty_input_simple.flatten()}")
+        print(f"np.array(u[0]).flatten() \t {np.array(u[0]).flatten()} + \n u_nom_alpha_corrected \t {u_nom_alpha_corrected} + \n self.u_comp \t\t {self.u_comp} \n = u_res \t\t\t {u_res}")
 
         self.publish_last_controller_values(
             t,

@@ -385,13 +385,14 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         c3 = x[3] - self.r * omega * ca.sin(alpha+beta)
         c4 = x[4] + self.r * omega * ca.cos(alpha+beta)
 
-        return ca.vertcat(c1, c2, c3, c4, omega, alpha)
+        # return ca.vertcat(c1, c2, c3, c4, omega, alpha)
+        return ca.vertcat(c1, c2, c3, c4, omega, alpha + beta - np.pi/2)
 
     def center_to_robot(self, c):
         """
         Transform back from the center to the robot
         """
-        alpha = c[5]
+        alpha = c[5] - beta + np.pi/2
         beta = self.spiral_params.beta
         omega = c[4]
 
