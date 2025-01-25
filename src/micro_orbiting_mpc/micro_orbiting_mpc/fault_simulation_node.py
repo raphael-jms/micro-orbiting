@@ -109,7 +109,7 @@ class FaultInjectionNode(Node):
             act.pos1 = failed_actuator["pos_ids"][0]
             act.pos2 = failed_actuator["pos_ids"][1]
             act.idx = failed_actuator["idx"]
-            act.intensity = failed_actuator["intensity"]
+            act.intensity = float(failed_actuator["intensity"])
             msg.failed_actuators.append(act)
         self.fault_publisher.publish(msg)
 
