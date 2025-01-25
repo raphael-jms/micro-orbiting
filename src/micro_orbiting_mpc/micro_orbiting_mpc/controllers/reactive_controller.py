@@ -90,7 +90,7 @@ class ReactiveController:
         tuning_param = self.params["tuning"]["spiraling"]
 
         self.spiral_params = {
-            'horizon': self.params["horizon"],
+            'horizon': tuning_param["horizon"] if "horizon" in tuning_param else 10, # TODO better default
             'param_set': tuning_param["param_set"],
             'tuning': tuning_param
         }
@@ -106,10 +106,11 @@ class ReactiveController:
         tuning_param = self.params["tuning"]["nominal"]
 
         self.nominal_params = {
-            'horizon': self.params["horizon"],
-            # "uub": [1] * self.model.m, # TODO
+            'horizon': tuning_param["horizon"] if "horizon" in tuning_param else 10, # TODO better default
+            "uub": [1] * self.model.m, # TODO
             "ulb": [0] * self.model.m,
-            # "terminal_constraint": get_terminal_constraints_no_faults(self.model, tuning), # TODO
+            "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
+                                                                    tuning_param[self.params["tuning"]["nominal"]["param_set"]]),
             'param_set': tuning_param["param_set"],
             'tuning': tuning_param
         }

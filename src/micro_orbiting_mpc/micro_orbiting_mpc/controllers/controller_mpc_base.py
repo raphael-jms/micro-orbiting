@@ -118,6 +118,12 @@ class GenericMPC(ControllerBaseClass):
         msg.e5 = e[4].item()
         msg.e_omega = e[5].item()
 
+        msg.center_state_x = x0[0].item()
+        msg.center_state_y = x0[1].item()
+        msg.center_state_omega = x0[5].item()
+        msg.center_state_vx = x0[3].item()
+        msg.center_state_vy = x0[4].item()
+
         msg.solver_time = slv_time
         msg.control_cost = cost
         msg.solver_state = self.SOLVE_STATUS[slv_status]

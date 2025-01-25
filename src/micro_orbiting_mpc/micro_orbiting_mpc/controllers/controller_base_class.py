@@ -39,7 +39,7 @@ class ControllerBaseClass:
     def assign_trajectory(self, traj):
         raise NotImplementedError("Method not implemented")
 
-    def load_trajectory(self, action, duration=10, file_path=None):
+    def load_trajectory(self, action, duration=100, file_path=None):
         """
         Load a trajectory for the controller to track.
 

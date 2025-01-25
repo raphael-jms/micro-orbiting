@@ -26,7 +26,8 @@ def get_terminal_constraints_no_faults(model, tuning):
     eig_val, eig_vec = la.eig(A_K)
     cond_kappa = -np.max(np.real(eig_val))
 
-    kappa = 0.1
+    # kappa = 0.1
+    kappa = 0.09
     if kappa > cond_kappa:
         raise ValueError(f"Choose kappa = {kappa} <= {cond_kappa}!")
 

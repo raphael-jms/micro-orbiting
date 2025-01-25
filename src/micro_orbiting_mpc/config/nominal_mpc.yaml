@@ -3,7 +3,7 @@
     # MPC params
     mode: "faultfree"
     # mode: "dummy"
-    horizon: 10
+    horizon: 30
     time_step: 0.1
     trajectory_tracking: true
     param_set: "P1"

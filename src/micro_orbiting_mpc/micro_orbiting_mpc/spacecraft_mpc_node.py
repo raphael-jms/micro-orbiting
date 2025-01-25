@@ -250,7 +250,6 @@ class SpacecraftMPCNode(Node):
                 # reactive: Assumes actuator failures can occur during runtime
                 self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
                 self.params = {
-                    "horizon": self.horizon,
                     "tuning": self.tuning
                 }
                 self.controller = ReactiveController(self.model, self.params, self.robot_parameters, 
