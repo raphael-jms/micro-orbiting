@@ -2,7 +2,7 @@
   ros__parameters:
     # MPC params
     mode: "spiralMPC_eMPC"
-    horizon: 10
+    horizon: 30
     time_step: 0.1
     trajectory_tracking: true
     param_set: "P1"
@@ -10,10 +10,11 @@
       ipopt.tol: 1e-5
     # Trajectory params
     traj_shape: "hover"
-    traj_duration: 30
+    traj_duration: 10
     tuning:
       P1:
-        Q: [1, 1, 1, 1, 0]
+        # Q: [1, 1, 1, 1, 0]
+        Q: [1, 1, 1, 1, 1]
         R: [0.1, 0.1, 0.01]
         P_mult: 1
         # Attention: The following parameters are only updated if the terminal set is recalculated!
@@ -21,6 +22,7 @@
         max_acceleration: 0.0    
         time_scaling: 5
         empc_horizon: 10
+        # empc_horizon: 10
       P2:
         Q: [1, 1, 1, 1, 1]
         # Q: [5, 5, 0.2, 0.2, 0.1]
@@ -37,9 +39,51 @@
       # - act_ids: [4,1]
       #   intensity: 1
       #   start_time: 0
-      - act_ids: [1,1]
+
+      # - act_ids: [1,1]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [2,1]
+      #   intensity: 1
+      #   start_time: 0
+
+      # - act_ids: [4, 1]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [2, 2]
+      #   intensity: 1
+      #   start_time: 0
+
+      # - act_ids: [2, 2]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [3, 2]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [2, 1]
+      #   intensity: 1
+      #   start_time: 0
+
+      # - act_ids: [3, 1]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [4, 1]
+      #   intensity: 1
+      #   start_time: 0
+
+      # - act_ids: [3, 2]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [2, 2]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [3, 1]
+      #   intensity: 1
+      #   start_time: 0
+    
+      - act_ids: [3,2]
         intensity: 1
         start_time: 0
-      - act_ids: [2,1]
+      - act_ids: [4,2]
         intensity: 1
         start_time: 0

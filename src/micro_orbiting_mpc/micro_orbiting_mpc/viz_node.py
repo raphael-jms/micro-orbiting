@@ -9,6 +9,7 @@ from matplotlib.patches import Rectangle, Circle
 from collections import deque
 
 from micro_orbiting_msgs.msg import ControllerValues, FailedActuators
+from micro_orbiting_mpc.util.utils import Rot3, Rot3Inv, Rot, RotInv
 
 class RealTimeVisualizer(Node):
     """
@@ -41,7 +42,10 @@ class RealTimeVisualizer(Node):
         # Initialize state variables
         self.position = np.zeros(2)  # x1, y1
         self.orientation = 0.0  # alpha
+        self.angular_velocity = 0.0  # omega
         self.center_position = np.zeros(2)
+        self.center_pos_full = np.zeros(5)  # x, y, vx, vy, omega
+        self.resulting_force = np.zeros(3)
 
         # Initialize path storage
         self.robot_path = deque(maxlen=self.path_points)
@@ -151,14 +155,38 @@ class RealTimeVisualizer(Node):
 
         self.failed_actuator_forces = np.zeros(8)
 
+        self.expected_acceleration_arrow = self.ax.arrow(
+            0, 0, 0, 0,
+            head_width=0.1,
+            head_length=0.2,
+            fc='green',
+            ec='green'
+        )
+
+        self.expected_velocity_arrow = self.ax.arrow(
+            0, 0, 0, 0,
+            head_width=0.1,
+            head_length=0.2,
+            fc='cyan',
+            ec='cyan'
+        )
+
+
         # Create timer for visualization updates
         self.update_timer = self.create_timer(0.05, self.update_plot)  # 20Hz update rate
 
     def controller_callback(self, msg):
         self.position = np.array([msg.x1, msg.y1])
         self.orientation = msg.alpha
+        self.angular_velocity = msg.omega
         self.center_position = np.array([msg.center_state_x, msg.center_state_y])
+        self.center_pos_full = np.array([msg.center_state_x, 
+                                         msg.center_state_y, 
+                                         msg.center_state_vx, 
+                                         msg.center_state_vy,
+                                         msg.center_state_omega])
         self.forces = np.array(msg.u_full)
+        self.resulting_force = np.array(msg.u)
         
         # Update paths
         self.robot_path.append(self.position)
@@ -193,6 +221,45 @@ class RealTimeVisualizer(Node):
             y=self.position[1],
             dx=dx,
             dy=dy
+        )
+
+        alpha = self.orientation
+        omega = self.angular_velocity
+        
+
+
+        beta = -np.pi/2
+        # beta = np.pi/2
+        faulty_input_center = np.array([0, 2.8])
+        # faulty_input_center = np.array([0, 2.8])
+
+
+        RotCenterToGlobal = Rot(alpha + beta - np.pi/2)
+        RotCenterToGlobal3 = Rot3(alpha + beta - np.pi/2)
+        [vel_x_global, vel_y_global] = RotCenterToGlobal @ self.center_pos_full[2:4]
+
+        self.expected_velocity_arrow.set_data(
+            x=self.center_position[0],
+            y=self.center_position[1],
+            dx = vel_x_global,
+            dy = vel_y_global
+        )
+
+        mass = 16.8
+        J = 0.1594
+        r = 0.33333544806105236
+
+        Fx = self.resulting_force[0] + faulty_input_center[0]
+        Fy = self.resulting_force[1] + faulty_input_center[1]
+        T = self.resulting_force[2]
+
+        [acc_x_global, acc_y_global, _] = RotCenterToGlobal3 @ np.array([Fx/mass - T*r/J, Fy/mass - r * omega**2, T/J ])
+
+        self.expected_acceleration_arrow.set_data(
+            x=self.center_position[0],
+            y=self.center_position[1],
+            dx = acc_x_global,
+            dy = acc_y_global
         )
 
         # Update center point

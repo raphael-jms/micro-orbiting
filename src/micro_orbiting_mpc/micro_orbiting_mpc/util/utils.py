@@ -14,6 +14,7 @@ def read_yaml(file_name, *keys):
     try:
         config_dir = get_package_share_directory('micro_orbiting_mpc')
         config_file = os.path.join(config_dir, 'config', file_name)
+        print(config_dir)
 
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"File '{config_file}' not found.")
@@ -220,3 +221,13 @@ def quaternion_from_euler(roll, pitch, yaw):
     q[3] = sy * cp * cr - cy * sp * sr
 
     return q
+
+def frame_message(msg, indent=8, add_newline=True):
+    result  = "*" * (len(msg) + 2*indent) + "\n"
+    if add_newline:
+        result += "\n"
+    result += " "*indent + f"{msg}\n"
+    if add_newline:
+        result += "\n"
+    result += "*" * (len(msg) + 2*indent) + "\n"
+    return result

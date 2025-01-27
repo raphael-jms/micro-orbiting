@@ -353,7 +353,7 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         beta = self.spiral_params.beta
         omega = c[4]
 
-        R = ca.MX.zeros(3, 3)
+        R = ca.MX.zeros(3, 3) # quasi Rot3
         R[0, 0] = ca.cos(alpha)
         R[0, 1] = -ca.sin(alpha)
         R[1, 0] = ca.sin(alpha)
@@ -367,7 +367,12 @@ class SpiralDynamics(FreeFlyerDynamicsSimplified):
         # Rinv[1, 1] = ca.cos(alpha)
         # Rinv[2, 2] = 1
 
+        # print("Robot to center rot", RobotToCenterRot(beta - np.pi/2))
+
         faulty_input_center = RobotToCenterRot(beta- np.pi/2) @ self.faulty_input_simple
+        
+        # print("Faulty input center", faulty_input_center.flatten())
+
         [Fx_res, Fy_res, T_res] = ca.vertsplit(u + faulty_input_center)
 
         c_vdot = R @ ca.vertcat(Fx_res/self.mass - T_res*self.r/self.J, 

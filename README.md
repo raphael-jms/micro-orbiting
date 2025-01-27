@@ -38,9 +38,9 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 
 ## Available parameters in config dir:
 
-> [!IMPORTANT]
+<!-- > [!IMPORTANT]
 > In order to make changed parameters available to ROS, the package nedds to be rebuilt using
-> `colcon build`, respectively `colcon build --packages-select micro_orbiting_mpc`!
+> `colcon build`, respectively `colcon build --packages-select micro_orbiting_mpc`! -->
 
 ### MPC params
 - mode: faultfree, reactive, spiralMPC_linearizing, spiralMPC_eMPC, dummy
@@ -187,3 +187,10 @@ ps aux | grep gz
 > raphael    11689  0.0  0.0  21068  2432 pts/2    S+   16:19   0:00 grep --color=auto gz
 kill -9 7122
 ```
+## Build properly
+If `colcon build`, respectively `colcon build --packages-select micro_orbiting_mpc`! are called, 
+the package needs to be rebuilt always when parameters were changed. Use
+```
+colcon build --symlink-install --packages-select micro_orbiting_mpc
+```
+instead s.t. the files are directly linked and all changes are visible directly.

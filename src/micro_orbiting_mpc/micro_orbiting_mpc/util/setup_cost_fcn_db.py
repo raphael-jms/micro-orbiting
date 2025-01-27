@@ -2,17 +2,16 @@ import argparse
 import pprint
 import time
 from datetime import timedelta
+import yaml
+import pprint
 
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.explicit_mpc_terminal_incredients import explicitMPCTerminalIngredients
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.util.cost_handler import CostHandler
 from micro_orbiting_mpc.util.yes_no_question import query_yes_no
-from micro_orbiting_mpc.util.utils import read_ros_parameter_file
+from micro_orbiting_mpc.util.utils import read_ros_parameter_file, frame_message
 
 def calculate_cost_fcn(model, cost_handler, tuning, system_params):
-    # TODO include the tuning in the database
-
-
     # Create the terminal cost function
     terminal_cost = explicitMPCTerminalIngredients(model, tuning)
 
@@ -32,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('--resolution', type=int, default=4, help='Number of cases considered per thruster')
     parser.add_argument('--db_name', type=str, default='spiralMPC_empc_cost.db', help='Name of the database')
     parser.add_argument('--just_param_file_case', action='store_true', help='Calculate only the case specified in the parameter file')
+    parser.add_argument('--cases', type=str, help='Cases to be calculated, takes yaml file as input of form list(list("act_ids": [int, int], "intensity": float))')
 
     parser.add_argument('--tuning_file', type=str, default='spiral_mpc_empc.yaml', help='Path to the tuning file')
     parser.add_argument('--robot_param_file', type=str, default='robot_parameters_gazebo.yaml', help='Path to the robot parameter file')
@@ -70,6 +70,8 @@ if __name__ == "__main__":
         cost_handler.create_table(overwrite=True)
 
     # Create the cost functions
+
+    # If the flag is set, calculate only the case specified in the parameter file
     if args.just_param_file_case:
         start_t = time.time()
 
@@ -83,6 +85,67 @@ if __name__ == "__main__":
         print("*"*41 + f"\n\n\tTime taken: {str(elapsed).split('.')[0]} h:m:s\n\n" + "*"*41)
 
         exit()
+ 
+    # If the cases are specified in a file, calculate them
+    if args.cases is not None:
+        """
+        Takes a YAML file as input of the form
 
+        # Different cases to be calculated
+        - 
+            # Different actuators in each case
+            - act_ids: [3,1]
+            intensity: 1
+            - act_ids: [4,1]
+            intensity: 1
+        - 
+            - act_ids: [1,1]
+            intensity: 1
+            - act_ids: [2,1]
+            intensity: 1
+
+        Calculates the terminal ingredients for all cases
+        """
+        start_t = time.time()
+
+        # read the cases from the file
+        with open(args.cases, 'r') as file:
+            failure_cases = yaml.safe_load(file)
+
+        if not args.yes:
+            print(f"Calculating the following cases:")
+            for case in failure_cases:
+                pprint.pprint(case)
+            if not query_yes_no("Is this correct?"):
+                print("You can choose different cases using the --cases argument. Use the following file format:\n")
+                print('''        # Different cases to be calculated
+        - 
+            # Different actuators in each case
+            - act_ids: [3,1]
+            intensity: 1
+            - act_ids: [4,1]
+            intensity: 1
+        - 
+            - act_ids: [1,1]
+            intensity: 1
+            - act_ids: [2,1]
+            intensity: 1)''')
+                exit()
+
+        for current_case_number, case in enumerate(failure_cases):
+            model = FreeFlyerDynamicsFull(tuning_params["time_step"], system_params)
+
+            for act in case:
+                model.add_actuator_fault(act['act_ids'], act['intensity'])
+            calculate_cost_fcn(model, cost_handler, tuning_params["tuning"][tuning_params["param_set"]],
+                               system_params)
+
+            print(frame_message(f"Finished case {current_case_number+1} of {len(failure_cases)}", indent=4, add_newline=False))
+
+        elapsed = timedelta(seconds=time.time() - start_t)
+        print(frame_message(f"Time taken: {str(elapsed).split('.')[0]} h:m:s"))
+        exit()
+
+    # Calculate all the cases
     raise NotImplementedError("This script is not implemented fully yet. Please use the --just_param_file_case flag.")
     # TODO: Iterate over all combinations of actuator failures and calculate the cost functions

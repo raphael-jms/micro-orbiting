@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import time
 import random
 import pprint
+import copy
 
 from micro_orbiting_msgs.msg import ControllerValues
 
@@ -14,7 +15,6 @@ from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 from micro_orbiting_mpc.util.utils import LogData, Rot3Inv, Rot3
 from micro_orbiting_mpc.util.cost_handler import CostHandler
 
-# Was the other way before
 RobotToCenterRot = Rot3Inv 
 CenterToRobotRot = Rot3
 
@@ -31,6 +31,7 @@ class FancyMPC(GenericMPC):
         self.robot_params = robot_params
 
         self.use_terminal_set = False
+        # self.use_terminal_set = True
 
         super().__init__(model, params, ros_node)
 
@@ -104,10 +105,20 @@ class FancyMPC(GenericMPC):
         beta = self.spiral_params.beta
         ChullMat = ChullMat @ CenterToRobotRot(beta - np.pi/2)
 
+        print("center to robot rot", CenterToRobotRot(beta - np.pi/2))
+        print("Robot to center rot", RobotToCenterRot(beta - np.pi/2))
+
         # Compensating input to get the virtual incontrollable force, not the pysical one
         u_comp = RobotToCenterRot(beta - np.pi/2) @ self.spiral_params.compensation_force
         self.u_comp = u_comp
         u_uncontrolled = RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()
+        u_uncontrolled = u_uncontrolled.flatten()
+
+        print(f"u_comp: {u_comp}")
+        print(f"u_uncontrolled: {u_uncontrolled}")
+
+        print(f"beta: {self.spiral_params.beta}")
+        print(f"r: {self.spiral_params.r}")
 
         # Generate MPC Problem
         for t in range(self.Nt):
@@ -252,16 +263,18 @@ class FancyMPC(GenericMPC):
             self.data['c'].add_data(t, c0)
             self.data['ce'].add_data(t, c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten())
         
-        u_phys = self.ih.get_physical_input(u_res)
-
         beta = self.spiral_params.beta
-        print(f"error {RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()}")
-        print(f"np.array(u[0]).flatten() \t {RobotToCenterRot(beta - np.pi/2) @ np.array(u[0]).flatten()} + \n u_nom_alpha_corrected \t {RobotToCenterRot(beta - np.pi/2) @ u_nom_alpha_corrected} + \n self.u_comp \t\t {self.u_comp} \n = u_res \t\t\t {RobotToCenterRot(beta - np.pi/2) @ u_res}")
+        u_phys = self.ih.get_physical_input(CenterToRobotRot(beta - np.pi/2) @ u_res)
+        # u_phys = np.zeros(8)
+
+        # beta = self.spiral_params.beta
+        # print(f"error {RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()}")
+        # print(f"np.array(u[0]).flatten() \t {RobotToCenterRot(beta - np.pi/2) @ np.array(u[0]).flatten()} + \n u_nom_alpha_corrected \t {RobotToCenterRot(beta - np.pi/2) @ u_nom_alpha_corrected} + \n self.u_comp \t\t {self.u_comp} \n = u_res \t\t\t {RobotToCenterRot(beta - np.pi/2) @ u_res}")
 
         self.publish_last_controller_values(
             t,
             x0,
-            self.x_sp,
+            c,
             u_res,
             u_nom_alpha_corrected,
             u[0],
@@ -357,13 +370,13 @@ class FancyMPC(GenericMPC):
         msg.u_control = u_contr.full().flatten().tolist()
         msg.u_full = u_phys.flatten().tolist()
 
-        x_plan = x_plan.reshape(5, -1, order='F')
-        msg.plan_x1 = [x[0].__float__() for x in x_plan]
-        msg.plan_y1 = [x[1].__float__() for x in x_plan]
-        msg.plan_alpha = [x[2].__float__() for x in x_plan]
-        msg.plan_x2 = [x[3].__float__() for x in x_plan]
-        msg.plan_y2 = [x[4].__float__() for x in x_plan]
-        msg.plan_omega = [x[5].__float__() for x in x_plan]
+        # x_plan = x_plan.reshape(5, -1, order='F')
+        x_plan = np.vstack([dm.full().flatten() for dm in x_plan]).T
+        msg.plan_x1 = x_plan[0,:].tolist()
+        msg.plan_y1 = x_plan[1,:].tolist()
+        msg.plan_x2 = x_plan[2,:].tolist()
+        msg.plan_y2 = x_plan[3,:].tolist()
+        msg.plan_omega = x_plan[4,:].tolist()
 
         msg.e1 = e[0].item()
         msg.e2 = e[1].item()

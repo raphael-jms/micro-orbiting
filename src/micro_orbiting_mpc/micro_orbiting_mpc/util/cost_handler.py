@@ -5,6 +5,7 @@ import numpy as np
 import casadi as ca
 import os
 import pprint
+import copy
 
 from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.util.yes_no_question import query_yes_no
@@ -118,6 +119,8 @@ class CostHandler:
                 })
             terminal_set = result[1]
             terminal_set = json.loads(terminal_set, cls=PolytopeDecoder)
+            
+            print(result[0].replace("Float('", "").replace("', precision=53)", "").replace(", modules={'Abs':ca.fabs, 'tanh':ca.tanh})", "").replace("sp.lambdify((e0_1, e0_2, e0_3, e0_4, e0_5), ", "term_cost(e) = "))
 
             return terminal_cost, terminal_set
         else:
@@ -152,6 +155,8 @@ class CostHandler:
                 intensity = intensity.item()
 
             f8[actuator["idx"]] = intensity
+
+        # f8 = [-1.0,-1.0,-1.0,-1.0,1.0,-1.0,1.0,-1.0]
 
         f8.append(json.dumps(tuning, sort_keys=True))
         f8.append(json.dumps(robot_params, sort_keys=True))

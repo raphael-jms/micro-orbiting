@@ -10,10 +10,31 @@ import yaml
 from micro_orbiting_mpc.util.utils import read_yaml_matrix, read_yaml
 from micro_orbiting_mpc.util.polytope import MyPolytope
 from micro_orbiting_mpc.models.ff_input_bounds import SpiralParameters, InputBounds
+from micro_orbiting_mpc.util.utils import Rot3, Rot3Inv
 
 from pympc.geometry.polyhedron import Polyhedron
 from pympc.dynamics.discrete_time_systems import LinearSystem
 from pympc.control.controllers import ModelPredictiveController
+
+RobotToCenterRot = Rot3Inv 
+CenterToRobotRot = Rot3
+
+def sort_all_columns_right_to_left(arr):
+    """
+    Sort a 2D numpy array by all columns, starting from the rightmost column.
+    
+    Args:
+        arr: 2D numpy array
+        
+    Returns:
+        Sorted array
+    """
+
+    arr = np.round(arr, 4)
+
+    for i in range(arr.shape[1]-1, -1, -1):
+        arr = arr[arr[:, i].argsort(kind='stable')]
+    return arr
 
 """
 Issues and ToDos:
@@ -36,8 +57,6 @@ class explicitMPCTerminalIngredients:
         self.k_omega = tuning["k_omega"]
         self.tuning = tuning
 
-        # self.r = sp.symbols('r', real=True, positive=True)
-        # self.omega_theta = sp.symbols('omega_theta', real=True)
         self.r = self.spiral_params.r
         self.omega_theta = self.spiral_params.omega_theta
         self.virt_force = ca.DM(self.spiral_params.b)
@@ -61,22 +80,16 @@ class explicitMPCTerminalIngredients:
 
     def calculate_empc_input_bounds(self):
         bounds = InputBounds(self.model)
-        J = self.J; r = self.r; omega_th = self.omega_theta; k_omega = self.k_omega; b_force = self.virt_force
+        J = self.J; r = self.r; omega_th = self.omega_theta; k_omega = self.k_omega
+        b_force = RobotToCenterRot(self.spiral_params.beta - np.pi/2) @ self.virt_force # Calculate in virt_force-aligned local system
 
         # First step: Take acceleration into account
         A, b = bounds.get_conv_hull()
-        # P_full = MyPolytope(A, b)
-
+        A = A @ CenterToRobotRot(self.spiral_params.beta - np.pi/2) # Calculate in virt_force-aligned local system
 
         # transform to accelerations
         P_full = MyPolytope(A @ self.Minv, b)
-        # fig, ax = plt.subplots(1, 1)
-        # ax = fig.add_subplot(111, projection='3d')
-        # P_full.plot(ax, 'r')
-        # MyPolytope(A, b).plot(ax, 'b')
-        # plt.show()
         P_offsetfree = P_full.minkowski_subtract_circle(self.max_acceleration)
-        # P_offsetfree.plot()
 
         # Second step: Calculate u3max
         opti = ca.Opti()
@@ -85,14 +98,10 @@ class explicitMPCTerminalIngredients:
         constraints = []
         constraints.append(u >= np.zeros(P_offsetfree.Nx))
 
-        combinations = list(itertools.product(*[[-u[i], u[i]] for i in range(P_offsetfree.Nx)]))
+        # create corner points of a box centered at zero with edge_length = 2u
+        combinations = list(itertools.product(*[[-u[i], u[i]] for i in range(P_offsetfree.Nx)])) 
         u3 = u[2]
-        # b_of_u = P_offsetfree.b - 2 * np.sign(P_offsetfree.b) * (1/k_omega * u3 + 2*omega_th) * 1/k_omega * r * u3
-        """
-        I need the radius, right?
-        """
         b_of_u = P_offsetfree.b - np.sign(P_offsetfree.b) * (1/k_omega * u3 + 2*omega_th) * 1/k_omega * r * u3 
-        # b_of_u = P_offsetfree.b - np.sign(P_offsetfree.b) * (J/k_omega * u3 + 2*omega_th) * J/k_omega * r * u3 # J should already be handled by Minv, right?
 
         for combination in combinations:
             constraints.append(
@@ -120,6 +129,7 @@ class explicitMPCTerminalIngredients:
         """
         assert xSet.Nx == 2 and ySet.Nx == 2
 
+        # Separate 2-dim (1-dim) sets for x-, y- and alpha-direction: combine into one 5-dim set
         A = np.vstack((
             np.hstack((  xSet.A[:,0].reshape(-1,1), np.zeros((xSet.Nc, 1)), xSet.A[:,1].reshape(-1,1), np.zeros((xSet.Nc, 2))  )),
             np.hstack((  np.zeros((ySet.Nc, 1)), ySet.A[:,0].reshape(-1,1), np.zeros((ySet.Nc, 1)), ySet.A[:,1].reshape(-1,1), np.zeros((ySet.Nc, 1))  )),
@@ -184,7 +194,7 @@ class explicitMPCTerminalIngredients:
 
         # State and input constraints
         U = Polyhedron.from_bounds(-uimax, uimax)
-        X = Polyhedron.from_bounds(np.array([-5, -1.5]),
+        X = Polyhedron.from_bounds(np.array([-5, -1.5]), # TODO parametrize
                                    np.array([ 5,  1.5]))
         D = X.cartesian_product(U)
 
@@ -194,11 +204,6 @@ class explicitMPCTerminalIngredients:
         # Calculate controller
         controller = ModelPredictiveController(sys, horizon, Q, R, P, D, X_N)
         controller.store_explicit_solution(verbose=True)
-
-        # Save results
-        # filename = f"explMPC/expl_MPC_2dim_horz_{horizon}.yaml"
-        # filename = f"controllers/explicitMPC_and_tuning/explMPC/expl_MPC_2dim_horz_{horizon}.yaml"
-        # controller.export_explicit_solution(filename)
 
         return controller
 
@@ -211,16 +216,9 @@ class explicitMPCTerminalIngredients:
         covered_area = MyPolytope.from_vertices(allvertices)
         allvertices = np.array(allvertices).T
 
-        # print(allvertices)
-
-        # Get the max and min vertices
-        # bounds_min = np.min(allvertices, axis=1)
-        # bounds_max = np.max(allvertices, axis=1)
-        
-        # reduce the calculation effort
+        # reduce the calculation effort # TODO parametrize this somehow
         bounds_min = np.array([-5,-5])
         bounds_max = np.array([ 5, 5])
-        # covered_area = MyPolytope.from_box(bounds_min, bounds_max)
 
         # Get tuples of the bounds and step size in each dimension
         slices = [slice(start, stop, 0.1) for start, stop in zip(bounds_min, bounds_max)]
@@ -238,9 +236,6 @@ class explicitMPCTerminalIngredients:
         obj = 0
 
         for point in points:
-            # if np.any(overall_set.equations @ np.array([*point, 1]) > 0):
-            #     continue
-
             val = empc.explicit_solution.V(point)
             if val is None:
                 continue
@@ -272,9 +267,18 @@ class explicitMPCTerminalIngredients:
         u_bound = self.calculate_empc_input_bounds()
         self.u3max =  u_bound[2]
         self.u3min = -u_bound[2]
-        u1max = u_bound[0]/np.sqrt(2)
-        u2max = u_bound[1]/np.sqrt(2)
+        # u1max = u_bound[0]/np.sqrt(2)
+        # u2max = u_bound[1]/np.sqrt(2)
+        # uimax = max(u1max, u2max)
+
+        # Calculate the maximal box bound (edge distance from 0) based on the vertices
+        ang = np.arctan2(u_bound[1], u_bound[0])
+        rad = np.sqrt(u_bound[0]**2 + u_bound[1]**2)
+        u1max = np.cos(ang)*rad
+        u2max = np.sin(ang)*rad
         uimax = max(u1max, u2max)
+
+        print(f"u_bound: {u_bound}")
 
         # Calculate the explicit MPC and cost
         empc_horizon = self.tuning["empc_horizon"]
@@ -301,6 +305,12 @@ class explicitMPCTerminalIngredients:
         cost_empc += err_y.T @ sp.Matrix(costs[1]['xx']) @ err_y + sp.Matrix(costs[1]['x']).T @ err_y #+ sp.Matrix([[costs[1]['c']])
         cost_empc = cost_empc[0, 0] # make scalar
 
+
+        print("cost xx, x, c")
+        print(costs[0]['xx'])
+        print(costs[0]['x'])
+        print(costs[0]['c'])
+
         q1, q2, qomega = self.Q[0, 0], self.Q[1, 1], self.Q[4, 4]
 
         # cost_e5
@@ -308,6 +318,7 @@ class explicitMPCTerminalIngredients:
         P_e5_subsystem = la.solve_discrete_lyapunov(A_e5_subsystem, np.array([[qomega]])).item()
         cost_e5 = e0_5**2 * P_e5_subsystem
 
+        print(f"cost e5: {cost_e5}")
         # cross term
         approx_abs_e0_5 = e0_5 * sp.tanh(e0_5/0.1)
         cross_term_constant = 2 * np.sqrt(u1max**2 + u2max**2) * self.mass**2 * q1 * self.r
@@ -315,6 +326,7 @@ class explicitMPCTerminalIngredients:
                         + (self.k_omega + 2 * sp.Abs(self.omega_theta)) / self.k_omega * approx_abs_e0_5
         cost_cross_term = cross_term_constant * cross_term_var
         
+        print(f"cost cross: {cost_cross_term}")
         # feedback term
         fb_factor = self.matrix_2_norm(sp.Matrix(self.Minv.T @ self.R @ self.Minv))
         P_K = la.solve_discrete_lyapunov(A_e5_subsystem, np.array([[1]])).item()
@@ -324,10 +336,14 @@ class explicitMPCTerminalIngredients:
             + (4*self.omega_theta*self.r) / ( 1 - (1-self.k_omega)**3 ) * e0_5**3
             + self.r**2 / ( 1 - (1-self.k_omega)**4 ) * e0_5**4
         )
+        print(f"cost cost_cross_term: {cost_fb_lin}")
+
 
         self.terminal_cost = cost_empc + cost_e5 + cost_cross_term + cost_fb_lin
         self.terminal_cost_function = sp.lambdify((e0_1, e0_2, e0_3, e0_4, e0_5), self.terminal_cost)
 
+        print("terminal cost overall")
+        print(self.terminal_cost_function)
         ## Calculate the terminal sets
         self.terminal_set = self.calculate_terminal_set(*sets)
 
@@ -357,6 +373,10 @@ class explicitMPCTerminalIngredients:
         return self.terminal_set
 
     def compare_bound_with_controller(self, empc, bound):
+        """
+        Compare the combined upper bound for all terminal regions  with the actual terminal cost
+        for the eMPC controller
+        """
         if empc.Nx != 2:
             Warning("Only 2D plots are supported.")
             return
