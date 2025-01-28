@@ -234,6 +234,90 @@ class InputHandlerImproved:
         return solve_qp(np.identity(3), -u, A, b, solver="daqp")
 
     def get_physical_input(self, u_simple):
+        u_des = u_simple.flatten()
+        u_fault = self.faulty_input_simple.flatten()
+
+        u_des = self.clip_generalized_input(u_des + u_fault) - u_fault
+
+        u_desired = cp.Parameter(3)
+        upper_bound = cp.Parameter(8)
+        u = cp.Variable(8)
+        obj = cp.Minimize(cp.sum_squares(u))
+
+        constraints = [
+            u >= np.zeros(8),
+            u <= upper_bound,
+            self.model.u_full2u_simple_np @ u == u_desired
+        ]
+
+        prob = cp.Problem(obj, constraints)
+
+        u_desired.value = u_des
+        upper_bound.value = self.model.u_ub_physical.flatten()
+
+        prob.solve()
+
+        if prob.status not in ["optimal", "optimal_inaccurate"]:
+            print(f"Problem status: {prob.status}")
+            print(f"u_des: {u_desired.value}")
+            print(f"u_ub: {upper_bound.value}")
+            print(f"solution I'd have before ")
+            print(self.get_physical_input2(u_simple))
+            exit()
+            return None
+
+        return u.value
+
+    def get_physical_input3(self, u_simple):
+        u_des = u_simple.flatten()
+        u_fault = self.faulty_input_simple.flatten()
+
+        u_des = self.clip_generalized_input(u_des + u_fault) - u_fault
+
+        u_desired = cp.Parameter(3)
+        u = cp.Variable(4)
+        obj = cp.Minimize(cp.sum_squares(u))
+
+        constraints = []
+
+        Fplus, Fminus = self.input_bounds.get_F_i_bounds()
+        constraints.append(Fminus <= u)
+        constraints.append(u <= Fplus)
+
+        d = self.model.d
+        D = np.array([
+            [ 1,  1,  0,  0],
+            [ 0,  0,  1,  1],
+            [ d, -d,  d, -d]
+        ])
+        constraints.append(D @ u == u_desired)
+
+        prob = cp.Problem(obj, constraints)
+
+
+        u_desired.value = u_des
+        prob.solve()
+
+        if prob.status not in ["optimal", "optimal_inaccurate"]:
+            print(f"Problem status: {prob.status}")
+            print(f"u_des: {u_desired.value}")
+            print(f"Fmin: {Fminus.flatten()}")
+            print(f"Fplus: {Fplus.flatten()}")
+            print(f"D: {D}")
+
+            print(f"solution I'd have before ")
+            print(self.get_physical_input2(u_simple))
+            exit()
+            return None
+
+        u_full = []
+        for i, ui in enumerate(u.value):
+            new_u = [abs(ui), 0] if ui >= 0 else [0, abs(ui)]
+            u_full += new_u
+
+        return np.array(u_full)
+
+    def get_physical_input2(self, u_simple):
         """
         Get the physical input from the simplified input. The function assumes that the 
         desired input is within the physical limits.
@@ -314,10 +398,11 @@ class InputHandlerImproved:
                 case States.FIRST_STUCK:
                     const_input = self.faulty_input_full[2*i].item()
                     # uij += [0, const_input - abs(u_tilde)]
-                    uij += [0, abs( abs(const_input) - u_tilde)]
+                    # uij += [0, abs( abs(const_input) - u_tilde)]
+                    uij += [0, const_input - abs(u_tilde)]
                 case States.SECOND_STUCK:
                     const_input = self.faulty_input_full[2*i + 1].item()
-                    uij += [const_input + abs(u_tilde), 0]
+                    uij += [const_input + u_tilde, 0]
                     # uij += [abs( abs(const_input) + u_tilde), 0]
                     print(self.faulty_input_full.flatten())
                     print(const_input)

@@ -6,17 +6,28 @@ from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 dt = 0.1
 params = dict(mass = 14.5, inertia = 0.37, max_force = 1.0, thruster_distance_to_center = 0.1)
 
+match 1:
+    case 1:
+        failure1 = [1,1]
+        failure2 = [1,2]
+        # u_des = np.array([0.5,0.0,0.0])
+        u_des = np.array([1.5,0.0,0.0])
+    case 2:
+        failure1 = [2,1]
+        failure2 = [2,2]
+        u_des = np.array([0.0,0.5,0.0])
+
 model_fault_free = FreeFlyerDynamicsFull(dt, params)
 
 model_first_stuck = FreeFlyerDynamicsFull(dt, params)
-model_first_stuck.add_actuator_fault([1,1], 1)
+model_first_stuck.add_actuator_fault(failure1, 1)
 
 model_second_stuck = FreeFlyerDynamicsFull(dt, params)
-model_second_stuck.add_actuator_fault([1,2], 1)
+model_second_stuck.add_actuator_fault(failure2, 1)
 
 model_both_stuck = FreeFlyerDynamicsFull(dt, params)
-model_both_stuck.add_actuator_fault([1,1], 1)
-model_both_stuck.add_actuator_fault([1,2], 1)
+model_both_stuck.add_actuator_fault(failure1, 1)
+model_both_stuck.add_actuator_fault(failure2, 1)
 
 bounds_fault_free = InputBounds(model_fault_free)
 ih_fault_free = InputHandlerImproved(model_fault_free, bounds_fault_free)
@@ -35,7 +46,6 @@ mbis = [[model_fault_free, bounds_fault_free, ih_fault_free],
        [model_second_stuck, bounds_second_stuck, ih_second_stuck],
        [model_both_stuck, bounds_both_stuck, ih_both_stuck]]
 
-u_des = np.array([0.5,0.0,0.0])
 
 print("Desired input: ", u_des)
 print("")
@@ -46,11 +56,14 @@ for mbi in mbis:
     ih = mbi[2]
     max_f = model.max_force
 
+    # u = ih.get_physical_input(u_des)
     u = ih.get_physical_input(u_des)
 
     print("Input full:   ", u/max_f)
     print("Input simple: ", model.u_full2u_simple_np @ u/max_f)
     print("Input faulty: ", model.faulty_input_simple.flatten()/max_f)
+    print("Fault full:   ", model.faulty_input_full.flatten()/max_f)
+    print("Resulting input: ", (model.u_full2u_simple_np @ u + model.faulty_input_simple.flatten())/max_f)
     print("")
 
 
