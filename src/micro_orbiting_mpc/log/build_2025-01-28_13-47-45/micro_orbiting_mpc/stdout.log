@@ -1,0 +1,27 @@
+running egg_info
+writing build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/PKG-INFO
+writing dependency_links to build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/dependency_links.txt
+writing entry points to build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/entry_points.txt
+writing requirements to build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/requires.txt
+writing top-level names to build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/top_level.txt
+reading manifest file 'build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info/SOURCES.txt'
+running build
+running build_py
+copying micro_orbiting_mpc/models/ff_input_bounds.py -> /home/raphael/micro-orbiting/src/micro_orbiting_mpc/build/micro_orbiting_mpc/build/lib/micro_orbiting_mpc/models
+running install
+running install_lib
+copying /home/raphael/micro-orbiting/src/micro_orbiting_mpc/build/micro_orbiting_mpc/build/lib/micro_orbiting_mpc/models/ff_input_bounds.py -> /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/python3.10/site-packages/micro_orbiting_mpc/models
+byte-compiling /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/python3.10/site-packages/micro_orbiting_mpc/models/ff_input_bounds.py to ff_input_bounds.cpython-310.pyc
+running install_data
+running install_egg_info
+removing '/home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/python3.10/site-packages/micro_orbiting_mpc-0.0.1-py3.10.egg-info' (and everything under it)
+Copying build/micro_orbiting_mpc/micro_orbiting_mpc.egg-info to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/python3.10/site-packages/micro_orbiting_mpc-0.0.1-py3.10.egg-info
+running install_scripts
+Installing fault_simulation_node script to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/micro_orbiting_mpc
+Installing spacecraft_mpc_node script to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/micro_orbiting_mpc
+Installing trajectory_init_node script to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/micro_orbiting_mpc
+Installing viz_node script to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/micro_orbiting_mpc
+Installing viz_plan script to /home/raphael/micro-orbiting/src/micro_orbiting_mpc/install/micro_orbiting_mpc/lib/micro_orbiting_mpc
+writing list of installed files to '/home/raphael/micro-orbiting/src/micro_orbiting_mpc/build/micro_orbiting_mpc/install.log'

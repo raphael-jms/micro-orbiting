@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    # Parameters for the dynamical model in the controller
+    mass: 16.8 # kg
+    inertia: 0.1594 # kg m^2
+    max_force: 1.4 # N
+    thruster_distance_to_center: 0.12 # m

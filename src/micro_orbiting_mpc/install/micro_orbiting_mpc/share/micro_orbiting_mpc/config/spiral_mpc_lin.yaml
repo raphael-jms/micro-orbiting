@@ -1,0 +1,38 @@
+/**:
+  ros__parameters:
+    # MPC params
+    mode: "spiralMPC_linearizing"
+    horizon: 10
+    time_step: 0.1
+    trajectory_tracking: true
+    param_set: "P1"
+    solver_opts:
+      ipopt.tol: 1e-5
+    # Trajectory params
+    traj_shape: "hover"
+    # traj_shape: "generate_point_stabilizing"
+    traj_duration: 30
+    tuning:
+      P1:
+        Q: [5.0, 5.0, 0.2, 0.2, 100.0]
+        R: [1.0, 1.0, 1.0]
+        P_mult: 1.0
+        # poles: [-1, -1.25, -1.5, -1.75, -0.5, -0.75] # poles for the feedback-linearized system
+        Q_linfb: [1, 1, 1, 1, 1]
+        R_linfb: [10, 10, 10]
+        recalculate_terminal_ingredients: false
+      P2:
+        Q: [5.0, 5.0, 0.2, 0.2, 0.1]
+        R: [100.0, 100.0, 100.0]
+        # R: [0, 0, 0]
+        # R: [0.001, 0.001, 0.001]
+        P_mult: 1.0
+        Q_linfb: [1, 1, 1, 1, 1]
+        R_linfb: [10, 10, 10]
+    actuator_failures: 
+      - act_ids: [3,1]
+        intensity: 1
+        start_time: 0
+      - act_ids: [4,1]
+        intensity: 1
+        start_time: 0
