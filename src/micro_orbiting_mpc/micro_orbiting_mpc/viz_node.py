@@ -228,21 +228,18 @@ class RealTimeVisualizer(Node):
         
 
 
-        beta = -np.pi/2
-        # beta = np.pi/2
-        faulty_input_center = np.array([0, 2.8])
-        # faulty_input_center = np.array([0, 2.8])
+        # 32, 42 (opposite case)
+        beta = -np.pi/2; faulty_input_center = np.array([0, 2.8])
 
+        # 31, 41 (standard case)
+        # beta = np.pi/2; faulty_input_center = np.array([0, 2.8])
 
-        RotCenterToGlobal = Rot(alpha + beta - np.pi/2)
-        RotCenterToGlobal3 = Rot3(alpha + beta - np.pi/2)
-        [vel_x_global, vel_y_global] = RotCenterToGlobal @ self.center_pos_full[2:4]
 
         self.expected_velocity_arrow.set_data(
             x=self.center_position[0],
             y=self.center_position[1],
-            dx = vel_x_global,
-            dy = vel_y_global
+            dx = self.center_pos_full[2],
+            dy = self.center_pos_full[3]
         )
 
         mass = 16.8
@@ -253,6 +250,7 @@ class RealTimeVisualizer(Node):
         Fy = self.resulting_force[1] + faulty_input_center[1]
         T = self.resulting_force[2]
 
+        RotCenterToGlobal3 = Rot3(alpha + beta - np.pi/2)
         [acc_x_global, acc_y_global, _] = RotCenterToGlobal3 @ np.array([Fx/mass - T*r/J, Fy/mass - r * omega**2, T/J ])
 
         self.expected_acceleration_arrow.set_data(

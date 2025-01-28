@@ -45,6 +45,7 @@ int32 solver_state
 float64 center_state_x
 float64 center_state_y
 float64 center_state_omega
+float64 center_state_alpha
 float64 center_state_vx
 float64 center_state_vy
 

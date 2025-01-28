@@ -391,6 +391,7 @@ class FancyMPC(GenericMPC):
         msg.center_state_x = center[0].item()
         msg.center_state_y = center[1].item()
         msg.center_state_omega = center[4].item()
+        msg.center_state_alpha = center[5].item()
         msg.center_state_vx = center[2].item()
         msg.center_state_vy = center[3].item()
 

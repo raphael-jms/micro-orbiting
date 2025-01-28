@@ -123,9 +123,6 @@ class FaultInjectionNode(Node):
 
     def control_signal_callback(self, msg: ActuatorMotors):
         """Handle incoming control signals and pass on with added faults/failures."""
-        # Get the faulty signal (8-dimensional)
-        _, faulty_input_full = self.model.get_faulty_input()
-        
         # Create output message
         output_msg = ActuatorMotors()
         output_msg.timestamp = msg.timestamp
