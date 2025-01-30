@@ -189,7 +189,6 @@ class ReactiveController:
     - traj_shape
     - traj_duration
     - actuator_failures
-    "- trajectory_tracking"
 - Need not to have
     - horizon
     - param_set

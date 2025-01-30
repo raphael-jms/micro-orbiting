@@ -5,7 +5,6 @@
     # mode: "dummy"
     horizon: 30
     time_step: 0.1
-    trajectory_tracking: true
     param_set: "P1"
     solver_opts:
       ipopt.tol: 1e-5

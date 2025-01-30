@@ -2,7 +2,6 @@
   ros__parameters:
     mode: "reactive"
     time_step: 0.1
-    trajectory_tracking: true
     traj_shape: "hover"
     traj_duration: 30
     # actuator_failures: 

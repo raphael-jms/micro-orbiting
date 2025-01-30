@@ -124,7 +124,6 @@ class SpacecraftMPCNode(Node):
             'mode': 'dummy',
             'time_step': 0.1,
             'horizon': 10,
-            'trajectory_tracking': True,
             'param_set': "P1",
             'solver_opts': { 'ipopt': {'tol': 1e-5} },
             'traj_shape': "generate_point_stabilizing",

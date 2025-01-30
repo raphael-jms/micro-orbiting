@@ -21,7 +21,6 @@ CenterToRobotRot = Rot3
 
 class FancyMPC(GenericMPC):
     DEFAULT_PARAMS = GenericMPC.DEFAULT_PARAMS.copy()
-    DEFAULT_PARAMS["trajectory_tracking"] = True
     DEFAULT_PARAMS["terminal_constraint"] = "from_file"
 
     def __init__(self, model, params, robot_params, ros_node, include_omega=False):
@@ -62,14 +61,9 @@ class FancyMPC(GenericMPC):
 
         x0 = ca.MX.sym('x0', self.Nx)
 
-        if self.trajectory_tracking:
-            # create vector representing the reference trajectory
-            x_ref = ca.reshape(ca.MX.sym('x_ref', self.Nopt, (self.Nt+1)), (-1, 1))
-            u_ref = ca.reshape(ca.MX.sym('u_ref', self.Nu, (self.Nt+1)), (-1, 1))
-        else:
-            # If no trajectory tracking: x_ref is the desired steady-state
-            x_ref = ca.MX.sym('x_ref', self.Nopt,)
-            u_ref = ca.MX.sym('u_ref', self.Nu,)
+        # create vector representing the reference trajectory
+        x_ref = ca.reshape(ca.MX.sym('x_ref', self.Nopt, (self.Nt+1)), (-1, 1))
+        u_ref = ca.reshape(ca.MX.sym('u_ref', self.Nu, (self.Nt+1)), (-1, 1))
 
         param_s = ca.vertcat(x0, x_ref, u_ref)
 
@@ -111,20 +105,18 @@ class FancyMPC(GenericMPC):
         for t in range(self.Nt):
             # Get variables
             x_t = opt_var['x', t]
-            if self.trajectory_tracking:
-                x_r = x_ref[t*self.Nopt:(t+1)*self.Nopt]
-                u_r = u_ref[t*self.Nu:(t+1)*self.Nu]
-                # The saved nominal input is not yet corrected for the orientation, correct now...
-                alpha = x_t[5]
-                rot = ca.MX(2,2)
-                rot[0, 0] = ca.cos(alpha)
-                rot[0, 1] = ca.sin(alpha)
-                rot[1, 0] = -ca.sin(alpha)
-                rot[1, 1] = ca.cos(alpha)
-                u_r = ca.vcat([ca.mtimes(rot, u_r[0:2]), u_r[2]])
-            else:
-                x_r = x_ref
-                u_r = u_ref
+
+            x_r = x_ref[t*self.Nopt:(t+1)*self.Nopt]
+            u_r = u_ref[t*self.Nu:(t+1)*self.Nu]
+            # The saved nominal input is not yet corrected for the orientation, correct now...
+            alpha = x_t[5]
+            rot = ca.MX(2,2)
+            rot[0, 0] = ca.cos(alpha)
+            rot[0, 1] = ca.sin(alpha)
+            rot[1, 0] = -ca.sin(alpha)
+            rot[1, 1] = ca.cos(alpha)
+            u_r = ca.vcat([ca.mtimes(rot, u_r[0:2]), u_r[2]])
+
             u_t = opt_var['u', t]
 
             # Dynamics constraint
@@ -149,10 +141,7 @@ class FancyMPC(GenericMPC):
 
         # Terminal ingredients
         x_t = opt_var['x', self.Nt]
-        if self.trajectory_tracking:
-            x_r = x_ref[self.Nt*self.Nopt:(self.Nt+1)*self.Nopt]
-        else:
-            x_r = x_ref
+        x_r = x_ref[self.Nt*self.Nopt:(self.Nt+1)*self.Nopt]
 
         # Terminal Cost
         e_N = x_t[0:self.Nopt] - x_r
@@ -206,14 +195,9 @@ class FancyMPC(GenericMPC):
             c0 = x0.copy()
         c0 = np.array(c0).flatten()
 
-        if self.trajectory_tracking:
-            x_ref, u_ref = self.get_next_trajectory_part(t)
-            self.x_sp = x_ref.reshape(-1, 1, order='F')
-            self.u_sp = u_ref.reshape(-1, 1, order='F')
-        else:
-            if self.x_sp is None or self.u_sp is None:
-                self.x_sp = np.zeros(self.Nopt)
-                self.u_sp = np.zeros(self.Nu)
+        x_ref, u_ref = self.get_next_trajectory_part(t)
+        self.x_sp = x_ref.reshape(-1, 1, order='F')
+        self.u_sp = u_ref.reshape(-1, 1, order='F')
         
         u_nom_alpha_corrected = (Rot3Inv(c0[5]) @ self.u_sp[0:self.Nu]).flatten()
         # Solve the optimization problem
@@ -389,10 +373,7 @@ class FancyMPC(GenericMPC):
         c, time = self.data["c"].get_array()
         ce, _ = self.data["ce"].get_array()
 
-        if not self.trajectory_tracking:
-            traj = np.zeros((self.Nopt, c.shape[1]))
-        else:
-            traj = self.trajectory[:, 0:c.shape[1]]
+        traj = self.trajectory[:, 0:c.shape[1]]
 
         fig, axs = plt.subplots(c.shape[0], 1, figsize=(10, 10))
         plt_titles_c = self.data["c"].name

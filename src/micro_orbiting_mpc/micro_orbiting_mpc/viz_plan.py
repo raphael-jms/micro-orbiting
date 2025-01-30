@@ -37,7 +37,7 @@ class TrajectoryVisualizer(Node):
             'plan_vy': deque(maxlen=plan_data_length)
         }
 
-        self.fig, self.axes = plt.subplots(5, 1, figsize=(10, 12))
+        self.fig, self.axes = plt.subplots(5, 1, figsize=(10, 6))
         self.setup_plots()
         
         self.subscription = self.create_subscription(

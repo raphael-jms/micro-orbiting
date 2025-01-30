@@ -31,8 +31,6 @@ class FBLinearizingController(ControllerBaseClass):
 
         self.spiral_params = self.model.spiral_params
 
-        self.trajectory_tracking=True
-
         self.Nt = 1
         self.tuning = tuning
 
@@ -239,10 +237,7 @@ class FBLinearizingController(ControllerBaseClass):
         c, time = self.data["c"].get_array()
         ce, _ = self.data["e"].get_array()
 
-        if not self.trajectory_tracking:
-            traj = np.zeros((self.Nopt, c.shape[1]))
-        else:
-            traj = self.trajectory[:, 0:c.shape[1]]
+        traj = self.trajectory[:, 0:c.shape[1]]
 
         fig, axs = plt.subplots(c.shape[0], 1, figsize=(10, 10))
         plt_titles_c = self.data["c"].name

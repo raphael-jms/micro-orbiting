@@ -3,7 +3,6 @@
     # MPC params
     mode: "feedback_linearizing_controller"
     time_step: 0.1
-    trajectory_tracking: true
     param_set: "P1"
     # Trajectory params
     traj_shape: "hover"

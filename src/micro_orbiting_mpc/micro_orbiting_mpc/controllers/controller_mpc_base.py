@@ -16,7 +16,6 @@ class GenericMPC(ControllerBaseClass):
     # Default parameters for the MPC controller and its child classes
     DEFAULT_PARAMS = {
         "horizon": 10,
-        "trajectory_tracking": True,
         "ulb": None,
         "uub": None,
         "xlb": None,
@@ -63,7 +62,6 @@ class GenericMPC(ControllerBaseClass):
         # set models, dynamics, bounds, input handler, model parameters
         self.set_model(model)
 
-        self.trajectory_tracking = self.get_param("trajectory_tracking")
         self.trajectory = None
 
         self.tuning= self.get_param("tuning")
@@ -151,14 +149,9 @@ class GenericMPC(ControllerBaseClass):
 
         x0 = ca.MX.sym('x0', self.Nx)
 
-        if self.trajectory_tracking:
-            # create vector representing the reference trajectory
-            x_ref = ca.reshape(ca.MX.sym('x_ref', self.Nopt, (self.Nt+1)), (-1, 1))
-            u_ref = ca.reshape(ca.MX.sym('u_ref', self.Nu, (self.Nt+1)), (-1, 1))
-        else:
-            # If no trajectory tracking: x_ref is the desired steady-state
-            x_ref = ca.MX.sym('x_ref', self.Nopt,)
-            u_ref = ca.MX.sym('u_ref', self.Nu,)
+        # create vector representing the reference trajectory
+        x_ref = ca.reshape(ca.MX.sym('x_ref', self.Nopt, (self.Nt+1)), (-1, 1))
+        u_ref = ca.reshape(ca.MX.sym('u_ref', self.Nu, (self.Nt+1)), (-1, 1))
 
         param_s = ca.vertcat(x0, x_ref, u_ref)
 
@@ -189,12 +182,8 @@ class GenericMPC(ControllerBaseClass):
         for t in range(self.Nt):
             # Get variables
             x_t = opt_var['x', t]
-            if self.trajectory_tracking:
-                x_r = x_ref[t*self.Nopt:(t+1)*self.Nopt]
-                u_r = u_ref[t*self.Nu:(t+1)*self.Nu]
-            else:
-                x_r = x_ref
-                u_r = u_ref
+            x_r = x_ref[t*self.Nopt:(t+1)*self.Nopt]
+            u_r = u_ref[t*self.Nu:(t+1)*self.Nu]
             u_t = opt_var['u', t]
 
             # Dynamics constraint
@@ -222,10 +211,7 @@ class GenericMPC(ControllerBaseClass):
 
         # Terminal incredients
         x_t = opt_var['x', self.Nt]
-        if self.trajectory_tracking:
-            x_r = x_ref[self.Nt*self.Nopt:(self.Nt+1)*self.Nopt]
-        else:
-            x_r = x_ref
+        x_r = x_ref[self.Nt*self.Nopt:(self.Nt+1)*self.Nopt]
 
         terminal_constraint = self.get_param("terminal_constraint")
         if isinstance(terminal_constraint, EllipticalTerminalConstraint):
@@ -332,19 +318,10 @@ class GenericMPC(ControllerBaseClass):
         self.terminal_cost = ca.Function('V', [x, xr, P], [V])
 
     def get_control(self, x0, t):
-        if self.trajectory_tracking:
-            x_ref, u_ref = self.get_next_trajectory_part(t)
-            x0 = self.handle_angle_wraparound(x0, x_ref[:,0])
-            self.x_sp = x_ref.reshape(-1, 1, order='F')
-            self.u_sp = u_ref.reshape(-1, 1, order='F')
-            # self.u_sp = np.zeros(self.Nu * (self.Nt+1))
-            # print(x_ref)
-            # print(self.x_sp.T)
-        else:
-            if self.x_sp is None or self.u_sp is None:
-                self.x_sp = np.zeros(self.Nopt)
-                self.u_sp = np.zeros(self.Nu)
-            x_ref, u_ref = np.zeros(self.Nopt), np.zeros(self.Nu)
+        x_ref, u_ref = self.get_next_trajectory_part(t)
+        x0 = self.handle_angle_wraparound(x0, x_ref[:,0])
+        self.x_sp = x_ref.reshape(-1, 1, order='F')
+        self.u_sp = u_ref.reshape(-1, 1, order='F')
 
         # Solve the optimization problem
         x, u, slv_time, cost, slv_status = self.solve_mpc(x0)
@@ -401,19 +378,7 @@ class GenericMPC(ControllerBaseClass):
         terminal = self.get_param("terminal_constraint")
         if isinstance(terminal, EllipticalTerminalConstraint):
             x = np.asarray(optvar['x', self.Nt])[0:self.Nopt]
-            if self.trajectory_tracking:
-                x_r = self.x_sp[self.Nt * self.Nopt : (self.Nt+1) * self.Nopt]
-
-                # x1 = np.asarray(optvar['x', self.Nt-1])
-                # xr1 = self.x_sp[(self.Nt-1) * self.Nopt : self.Nt * self.Nopt]
-                # print(f"x1-xr1: {(x1-xr1).T @ terminal.P @ (x1-xr1)}")
-                # print(f"x-xr1: {(x-xr1).T @ terminal.P @ (x-xr1)}")
-                # print(f"x1-x_r: {(x1-x_r).T @ terminal.P @ (x1-x_r)}")
-
-                # print(terminal.P)
-                # print(terminal.alpha)
-            else:
-                x_r = np.zeros_like(x)
+            x_r = self.x_sp[self.Nt * self.Nopt : (self.Nt+1) * self.Nopt]
             self.logger.info(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  Term. constraint: {((x-x_r).T @ terminal.P @ (x-x_r)).item():5.2f} <= {terminal.alpha:5.2f}  |  {status}")
         else:
             self.logger.info(f"MPC - CPU time: {slv_time:,.7f} seconds  |  Cost: {float(sol['f']):9.2f}  |  Horizon length: {self.Nt}  |  {status}")
@@ -463,10 +428,7 @@ class GenericMPC(ControllerBaseClass):
             warnings.warn("No data to plot.")
             return
 
-        if not self.trajectory_tracking:
-            traj = np.zeros((self.Nopt, self.data["x"].len()))
-        else:
-            traj = self.trajectory[:, 0:self.data["x"].len()]
+        traj = self.trajectory[:, 0:self.data["x"].len()]
         
         # plot state and error
         x, time = self.data["x"].get_array()
