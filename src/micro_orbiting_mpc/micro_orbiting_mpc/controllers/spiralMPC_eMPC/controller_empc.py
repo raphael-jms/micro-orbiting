@@ -30,9 +30,6 @@ class FancyMPC(GenericMPC):
         self.spiral_params = SpiralParameters(model)
         self.robot_params = robot_params
 
-        self.use_terminal_set = False
-        # self.use_terminal_set = True
-
         super().__init__(model, params, ros_node)
 
     def set_cost_functions(self):
@@ -42,11 +39,10 @@ class FancyMPC(GenericMPC):
         # The terminal cost is different for the spiraling case; overwrite it
         ch = CostHandler()
 
-        if self.use_terminal_set:
-            tuning = self.tuning[self.param_set]
-            self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
-                                                                        self.robot_params)
-            self.logger.info(str(self.terminal_constraint))
+        tuning = self.tuning[self.param_set]
+        self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
+                                                                    self.robot_params)
+        self.logger.info(str(self.terminal_constraint))
 
     def build_solver(self):
         """
@@ -105,20 +101,11 @@ class FancyMPC(GenericMPC):
         beta = self.spiral_params.beta
         ChullMat = ChullMat @ CenterToRobotRot(beta - np.pi/2)
 
-        print("center to robot rot", CenterToRobotRot(beta - np.pi/2))
-        print("Robot to center rot", RobotToCenterRot(beta - np.pi/2))
-
         # Compensating input to get the virtual incontrollable force, not the pysical one
         u_comp = RobotToCenterRot(beta - np.pi/2) @ self.spiral_params.compensation_force
         self.u_comp = u_comp
         u_uncontrolled = RobotToCenterRot(beta - np.pi/2) @ self.model.faulty_input_simple.flatten()
         u_uncontrolled = u_uncontrolled.flatten()
-
-        print(f"u_comp: {u_comp}")
-        print(f"u_uncontrolled: {u_uncontrolled}")
-
-        print(f"beta: {self.spiral_params.beta}")
-        print(f"r: {self.spiral_params.r}")
 
         # Generate MPC Problem
         for t in range(self.Nt):
@@ -147,10 +134,6 @@ class FancyMPC(GenericMPC):
             # Input constraints
             con_ineq.append(ChullMat @ (u_t + u_r + u_comp + u_uncontrolled))
             con_ineq_ub.append(ChullVec) # u_comp taken into account here
-            # con_ineq.append(ChullMat @ (u_t + u_r))
-            # con_ineq_ub.append(ChullVec - ChullMat @ (u_comp + u_uncontrolled)) # u_comp taken into account here
-            # con_ineq.append(ChullMat @ (u_t + u_r + u_comp))
-            # con_ineq_ub.append(ChullVec) # u_comp taken into account here
             con_ineq_lb.append(np.full(ChullVec.shape, -ca.inf))
 
             # State constraints
@@ -174,18 +157,13 @@ class FancyMPC(GenericMPC):
         # Terminal Cost
         e_N = x_t[0:self.Nopt] - x_r
 
-        if self.use_terminal_set:
-            # # Terminal Constraint
-            # That actually does not do what I want: The eMPC is still in the terminal cost calculation, so I need to recalculate the cost with the corrected cost values
-            # obj += self.terminal_cost(*ca.vertsplit(e_N)) * self.dt
-            obj += self.terminal_cost(*ca.vertsplit(e_N))
+        # # Terminal Constraint
+        obj += self.terminal_cost(*ca.vertsplit(e_N))
 
-            con_t = self.terminal_constraint
-            con_ineq.append(ca.mtimes(con_t.A, e_N))
-            con_ineq_lb.append(-ca.inf * np.ones_like(con_t.b))
-            con_ineq_ub.append(con_t.b)
-        else:
-            obj += ca.transpose(e_N) @ ca.DM(np.diag([100, 100, 100, 100, 1000])) @ e_N
+        con_t = self.terminal_constraint
+        con_ineq.append(ca.mtimes(con_t.A, e_N))
+        con_ineq_lb.append(-ca.inf * np.ones_like(con_t.b))
+        con_ineq_ub.append(con_t.b)
 
         # Equality constraints are reformulated as inequality constraints with 0<=g(x)<=0
         # -> Refer to CasADi documentation: NLP solver only accepts inequality constraints

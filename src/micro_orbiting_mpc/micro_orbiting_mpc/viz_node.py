@@ -155,23 +155,6 @@ class RealTimeVisualizer(Node):
 
         self.failed_actuator_forces = np.zeros(8)
 
-        self.expected_acceleration_arrow = self.ax.arrow(
-            0, 0, 0, 0,
-            head_width=0.1,
-            head_length=0.2,
-            fc='green',
-            ec='green'
-        )
-
-        self.expected_velocity_arrow = self.ax.arrow(
-            0, 0, 0, 0,
-            head_width=0.1,
-            head_length=0.2,
-            fc='cyan',
-            ec='cyan'
-        )
-
-
         # Create timer for visualization updates
         self.update_timer = self.create_timer(0.05, self.update_plot)  # 20Hz update rate
 
@@ -221,43 +204,6 @@ class RealTimeVisualizer(Node):
             y=self.position[1],
             dx=dx,
             dy=dy
-        )
-
-        alpha = self.orientation
-        omega = self.angular_velocity
-        
-
-
-        # 32, 42 (opposite case)
-        beta = -np.pi/2; faulty_input_center = np.array([0, 2.8])
-
-        # 31, 41 (standard case)
-        # beta = np.pi/2; faulty_input_center = np.array([0, 2.8])
-
-
-        self.expected_velocity_arrow.set_data(
-            x=self.center_position[0],
-            y=self.center_position[1],
-            dx = self.center_pos_full[2],
-            dy = self.center_pos_full[3]
-        )
-
-        mass = 16.8
-        J = 0.1594
-        r = 0.33333544806105236
-
-        Fx = self.resulting_force[0] + faulty_input_center[0]
-        Fy = self.resulting_force[1] + faulty_input_center[1]
-        T = self.resulting_force[2]
-
-        RotCenterToGlobal3 = Rot3(alpha + beta - np.pi/2)
-        [acc_x_global, acc_y_global, _] = RotCenterToGlobal3 @ np.array([Fx/mass - T*r/J, Fy/mass - r * omega**2, T/J ])
-
-        self.expected_acceleration_arrow.set_data(
-            x=self.center_position[0],
-            y=self.center_position[1],
-            dx = acc_x_global,
-            dy = acc_y_global
         )
 
         # Update center point

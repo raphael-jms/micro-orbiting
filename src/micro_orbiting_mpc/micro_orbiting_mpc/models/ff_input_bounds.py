@@ -205,6 +205,21 @@ class InputHandlerImproved:
 
         self.all_c_diff = []
 
+        # Define CVXPY problem components
+        self.u_desired = cp.Parameter(3)
+        self.upper_bound = cp.Parameter(8)
+        self.u_phys_min_energy = cp.Variable(8)
+        obj = cp.Minimize(cp.sum_squares(self.u_phys_min_energy))
+
+        constraints = [
+            self.u_phys_min_energy >= np.zeros(8),
+            self.u_phys_min_energy <= self.upper_bound,
+            self.model.u_full2u_simple_np @ self.u_phys_min_energy == self.u_desired
+        ]
+
+        self.prob = cp.Problem(obj, constraints)
+
+
     def clip_generalized_input(self, u):
         """
         Clip the generalized input to the physical limits.
@@ -214,16 +229,12 @@ class InputHandlerImproved:
         :return: clipped generalized input
         :rtype: np.array
 
-        The optimal way of doing this is to optimize
+        Solve by optimizing the problem
 
         min(u_clipped) (u - u_clipped)^2
         s.t. A u_clipped <= b
 
         using a QP solver.
-
-        Some (very simple) benchmarking resulted in finding a solution for the QP in 0.000775s
-        which is acceptable. It might even be better to pass on a check if the input is within 
-        the bounds, depending on how often the bounds are violated.
         """
         A, b = self.input_bounds.get_conv_hull()
 
@@ -235,94 +246,35 @@ class InputHandlerImproved:
 
     def get_physical_input(self, u_simple):
         """
-        Get the physical input from the simplified input. The function assumes that the 
-        desired input is within the physical limits.
+        Get the physical (8-dim) input from the simplified (3-dim) input. The input is clipped to 
+        the closest feasible solution if it is outside of the physical bounds.
 
         :param u_simple: simplified input
         :type u_simple: np.array
         :return: generalized input
         :rtype: np.array
-
-        The bounds for the force that two opposing thrusters u_{i,1} and u_{i,2} can apply are:
-        F_{i-} = -u_{i,2,max} and
-        F_{i+} = u_{i,1,max}
         """
-        # The following code gives the actual inputs that are needed if the _resulting force_
-        # is given, i.e. controlled _and_ uncontrolled (faulty) input!
-        u_simple += self.faulty_input_simple.flatten()
-        u_simple = self.clip_generalized_input(u_simple)
-        # print(f"u_simple: {u_simple}")
-        # print(f"0.9*u_simple: {0.9*u_simple}")
 
-        Fx = u_simple[0]
-        Fy = u_simple[1]
-        T  = u_simple[2] / self.model.d # see derivation, the torque is divided by its lever arm
-        T_tilde = (Fx + Fy + T)/2
+        u_des = u_simple.flatten()
+        u_fault = self.faulty_input_simple.flatten()
 
-        Fplus, Fminus = self.input_bounds.get_F_i_bounds()
+        u_des = self.clip_generalized_input(u_des + u_fault) - u_fault
 
-        c_min = max(
-            T_tilde - Fplus[0],
-            - Fx + T_tilde + Fminus[1],
-            Fminus[2],
-            Fy - Fplus[3]
-        )
-        c_max = min(
-            T_tilde - Fminus[0],
-            - Fx + T_tilde + Fplus[1],
-            Fplus[2],
-            Fy - Fminus[3]
-        )
+        # Update parameter values
+        self.u_desired.value = u_des
+        self.upper_bound.value = self.model.u_ub_physical.flatten()
 
-        if abs(c_min-c_max) < 0.05: # We don't let us stop by numerical inaccuracies :)
-            c = c_min
-        else:
-            if c_min > c_max:
-                # print("\n++++++++++++")
-                print(f"Fplus: {Fplus.T}")
-                print(f"Fminus: {Fminus.T}")
-                print(f"u_simple: {u_simple}")
-                print(f"Fx: {Fx}, Fy: {Fy}, T: {T}, T_tilde: {T_tilde}")
-                print(f"c_opt: {(2*Fy + T)/4}, cm: {c_min}, cM: {c_max}, cdiff: {c_max-c_min}")
-                print("elements cmin")
-                print(f"{Fx - Fplus[0]}\t{- Fx + T_tilde + Fminus[1]}\t{Fminus[2]}\t{Fy-Fplus[3]}")
-                print("elements cmax")
-                print(f"{Fx - Fminus[0]}\t{- Fx + T_tilde + Fplus[1]}\t{Fplus[2]}\t{Fy-Fminus[3]}")
-                # print("++++++++++++\n")
-                
-                chull = self.input_bounds.get_conv_hull()
-                max_f = self.input_bounds.get_max_forces()
-                PlottingHelper.plot_convex_hull(chull, max_f, [u_simple, 
-                                            self.faulty_input_simple.flatten(),
-                                            u_simple - self.faulty_input_simple.flatten()])
+        # Solve the problem
+        self.prob.solve()
 
-                raise ValueError("Warning: Infeasible generalized input")
+        if self.prob.status not in ["optimal", "optimal_inaccurate"]:
+            print(f"Problem status: {self.prob.status}")
+            print(f"u_des: {self.u_desired.value}")
+            print(f"u_ub: {self.upper_bound.value}")
+            exit()
+            return None
 
-            c = np.clip( (2*Fy + T)/4, c_min, c_max).item()
-
-        u1_tilde = T_tilde - c
-        u2_tilde = Fx - T_tilde + c
-        u3_tilde = c
-        u4_tilde = Fy - c
-
-        uij = []
-
-        for i, u_tilde in enumerate([u1_tilde, u2_tilde, u3_tilde, u4_tilde]):
-            match self.input_bounds.get_blocking_state(i):
-                case States.OPPOSING_FREE:
-                    uij += [abs(u_tilde), 0] if u_tilde >= 0 else [0, abs(u_tilde)]
-                case States.FIRST_STUCK:
-                    const_input = self.faulty_input_full[2*i].item()
-                    uij += [0, const_input - abs(u_tilde)]
-                case States.SECOND_STUCK:
-                    const_input = self.faulty_input_full[2*i + 1].item()
-                    uij += [const_input + abs(u_tilde), 0]
-                case States.BOTH_STUCK:
-                    uij += [0, 0]
-
-        self.all_c_diff.append([c_max, c_min]) # logging functionality
-
-        return np.array(uij).flatten()
+        return self.u_phys_min_energy.value
 
     def plot_c_bounds(self):
         if self.c_bounds_used():

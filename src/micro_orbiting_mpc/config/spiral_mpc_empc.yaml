@@ -34,12 +34,12 @@
         max_acceleration: 0.0    
     actuator_failures: 
       # # original
-      - act_ids: [3,1]
-        intensity: 1
-        start_time: 0
-      - act_ids: [4,1]
-        intensity: 1
-        start_time: 0
+      # - act_ids: [3,1]
+      #   intensity: 1
+      #   start_time: 0
+      # - act_ids: [4,1]
+      #   intensity: 1
+      #   start_time: 0
     
       # # opposite
       # - act_ids: [3,2]
@@ -56,12 +56,12 @@
       #   intensity: 1
       #   start_time: 0
 
-      # - act_ids: [4, 1]
-      #   intensity: 1
-      #   start_time: 0
-      # - act_ids: [2, 2]
-      #   intensity: 1
-      #   start_time: 0
+      - act_ids: [4, 1]
+        intensity: 1
+        start_time: 0
+      - act_ids: [2, 2]
+        intensity: 1
+        start_time: 0
 
       # - act_ids: [2, 2]
       #   intensity: 1
