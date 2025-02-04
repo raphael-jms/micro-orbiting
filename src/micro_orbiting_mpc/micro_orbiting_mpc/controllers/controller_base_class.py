@@ -2,6 +2,8 @@ import numpy as np
 import yaml
 import copy
 import warnings
+from ament_index_python.packages import get_package_share_directory
+import os
 
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved
 
@@ -130,9 +132,10 @@ class ControllerBaseClass:
                         np.zeros_like(t)
                     ))
                 case 'circle':
-                    radius = 2
-                    # full turn every 10s
-                    omega = 2*np.pi/30
+                    radius = kwargs['radius'] if 'radius' in kwargs else 2
+                    sPerRot = kwargs['sPerFullCircle'] if 'sPerFullCircle' in kwargs else 30
+                    # full turn every <x>s
+                    omega = 2*np.pi/sPerRot 
                     x_ref = np.stack((
                         radius * np.cos(omega * t),
                         radius * np.sin(omega * t),
@@ -165,13 +168,36 @@ class ControllerBaseClass:
             t = generate_trajectory(duration, form='point_stabilizing', position=position)
         elif action == "generate_circle":
             t = generate_trajectory(duration, form='circle')
+        elif 'circle' in action:
+            name, *params = action.split('_')
+            if name != 'circle':
+                raise ValueError(f"Invalid action '{action}'.")
+            if len(params) != 4:
+                raise ValueError(f"Invalid number of parameters for action '{action}'. Use 'circle_r_<radius>_sPerFullCircle_<speed>'")
+            if params[0] != 'r' or params[2] != 'sPerFullCircle':
+                raise ValueError(f"Invalid parameters for action '{action}'. Use 'circle_r_<radius>_sPerFullCircle<speed>'")
+            radius = float(params[1])
+            speed = float(params[3])
+            t = generate_trajectory(duration, form='circle', radius=radius, speed=speed)
         elif action == "load":
-            fpath = file_path if file_path is not None else './controllers/trajectories/trajectory.yaml'
+            fpath = file_path if file_path is not None else './controllers/trajectories/traj_01.yaml'
             t = load_trajectory_from_file(fpath) 
             if duration is not None:
                 if t.shape[1] < (duration)/self.dt:
                     raise ValueError(f"Warning: Trajectory is too short: Has only lenth of  " +
                                      f"{t.shape[1]*self.dt}s, but {duration}s needed.")
+        elif 'load' in action:
+            name, f_name = action.split('=')
+            config_dir = get_package_share_directory('micro_orbiting_mpc')
+            path = os.path.join(config_dir, 'config', 'trajectories', f_name)
+
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"File '{path}' not found.")
+
+            if name != 'load':
+                raise ValueError(f"Invalid action '{action}'.")
+
+            t = load_trajectory_from_file(path)
         else:
             raise ValueError(f"Invalid action '{action}'.")
         
@@ -185,7 +211,17 @@ class ControllerBaseClass:
             return None
 
         if stop_time is None:
-            return self.trajectory[:, int(start_time/self.dt):]
+            try:
+                return self.trajectory[:, int(start_time/self.dt):]
+            except IndexError:
+                self.logger.error(f"Trajectory too short: requested was the time from {start_time}"+ 
+                                  f"s to end, but trajectory has only length of " +
+                                  f" {self.trajectory.shape[1]*self.dt}s.")
         else:
-            return self.trajectory[:, int(start_time/self.dt):int(stop_time/self.dt)]
+            try:
+                return self.trajectory[:, int(start_time/self.dt):int(stop_time/self.dt)]
+            except IndexError:
+                self.logger.error(f"Trajectory too short: requested was the time from {start_time}"+ 
+                                  f"s to {stop_time}s, but trajectory has only length of " +
+                                  f" {self.trajectory.shape[1]*self.dt}s.")
 

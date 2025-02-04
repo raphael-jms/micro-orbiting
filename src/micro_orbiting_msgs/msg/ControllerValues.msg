@@ -55,6 +55,8 @@ float64 center_error_omega
 float64 center_error_vx
 float64 center_error_vy
 
+# Desired position
+float64[] desired_state
 
 # For reference, the u arrays are organized as:
 # u[0] = u11, u[1] = u12

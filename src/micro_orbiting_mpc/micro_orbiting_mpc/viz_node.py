@@ -46,6 +46,7 @@ class RealTimeVisualizer(Node):
         self.center_position = np.zeros(2)
         self.center_pos_full = np.zeros(5)  # x, y, vx, vy, omega
         self.resulting_force = np.zeros(3)
+        self.desired_state = np.zeros(6)
 
         # Initialize path storage
         self.robot_path = deque(maxlen=self.path_points)
@@ -106,6 +107,15 @@ class RealTimeVisualizer(Node):
             fill=True
         )
         self.ax.add_patch(self.center_point)
+
+        # Desired state point
+        self.desired_point = Circle(
+            (0, 0),
+            radius=0.03,
+            color='black',
+            fill=True
+        )
+        self.ax.add_patch(self.desired_point)
 
         # Create connection line
         self.connection_line, = self.ax.plot([], [], '--', color='gray')
@@ -174,6 +184,7 @@ class RealTimeVisualizer(Node):
         # Update paths
         self.robot_path.append(self.position)
         self.center_path.append(self.center_position)
+        self.desired_state = np.array(msg.desired_state)
     
     def failed_forces_callback(self, msg):
         self.failed_actuator_forces = np.zeros(8)
@@ -208,6 +219,7 @@ class RealTimeVisualizer(Node):
 
         # Update center point
         self.center_point.center = self.center_position
+        self.desired_point.center = self.desired_state[:2]
 
         # Update connection line
         self.connection_line.set_data(

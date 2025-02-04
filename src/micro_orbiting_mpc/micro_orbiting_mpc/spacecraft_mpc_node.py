@@ -179,6 +179,8 @@ class SpacecraftMPCNode(Node):
         self.tuning = read_ros_parameter_file(config_file, 'tuning')
         self.actuator_failures = read_ros_parameter_file(config_file, 'actuator_failures')
 
+        self.controller_start_time = None
+
         # create publishers
         self.publisher_offboard_mode = self.create_publisher(
             OffboardControlMode, 
@@ -535,6 +537,12 @@ class SpacecraftMPCNode(Node):
         actuator_outputs_msg.control = thrust_simulator.flatten()
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
+    def time_since_traj_start(self):
+        if self.controller_start_time is None:
+            self.controller_start_time = self.get_clock().now()
+        
+        return (self.get_clock().now() - self.controller_start_time).nanoseconds * 1e-9
+
     def cmdloop_callback(self):
         # Publish offboard control modes
         offboard_msg = OffboardControlMode()
@@ -559,7 +567,7 @@ class SpacecraftMPCNode(Node):
                         self.vehicle_local_velocity[1],
                         self.angular_velocity_z]).reshape(-1, 1)
 
-        u_pred = self.controller.get_control(x0, 0.0)
+        u_pred = self.controller.get_control(x0, self.time_since_traj_start())
         # self.updater.update(f"Pos: {self.vehicle_local_position} \t Control: {actuator_outputs_msg.control} \t OffboardMode: {self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
         self.updater.update(f"Pos: {self.vehicle_local_position} \t Attitude: {self.orientation_z} \t Velocity: {self.vehicle_local_velocity} \t Angular Velocity: {self.angular_velocity_z} actual control: {u_pred}")
 

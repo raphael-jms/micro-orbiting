@@ -41,7 +41,7 @@ class FancyMPC(GenericMPC):
         tuning = self.tuning[self.param_set]
         self.terminal_cost, self.terminal_constraint = ch.get_cost_fcn(self.model, tuning, 
                                                                     self.robot_params)
-        self.logger.info(str(self.terminal_constraint))
+        # self.logger.info(str(self.terminal_constraint))
 
     def build_solver(self):
         """
@@ -246,7 +246,8 @@ class FancyMPC(GenericMPC):
             slv_status,
             c0,
             c0[0:self.Nopt] - self.x_sp[0:self.Nopt].flatten(),
-            u_phys
+            u_phys,
+            x_ref[:,0].flatten()
         )
 
         beta = self.spiral_params.beta
@@ -312,7 +313,7 @@ class FancyMPC(GenericMPC):
         self.nominal_input = necessary_force
     
     def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, 
-                                       slv_status, center, center_error, u_phys):
+                                       slv_status, center, center_error, u_phys, goal_state):
         """
         Publish the last controller values to the ROS topic.
         Use only the values of ControllerValues that are relevant
@@ -362,6 +363,8 @@ class FancyMPC(GenericMPC):
         msg.center_error_omega = center_error[4].item()
         msg.center_error_vx = center_error[2].item()
         msg.center_error_vy = center_error[3].item()
+
+        msg.desired_state = goal_state.tolist()
 
         self.controller_stats_pub.publish(msg)
 

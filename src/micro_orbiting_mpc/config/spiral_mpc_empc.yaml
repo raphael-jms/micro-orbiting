@@ -8,7 +8,11 @@
     solver_opts:
       ipopt.tol: 1e-5
     # Trajectory params
-    traj_shape: "hover"
+    # traj_shape: "hover"
+    # traj_shape: "generate_circle"
+    traj_shape: "circle_r_1.2_sPerFullCircle_30"
+    # traj_shape: "generate_sin"
+    # traj_shape: "load=traj_01.yaml"
     traj_duration: 10
     tuning:
       P1:

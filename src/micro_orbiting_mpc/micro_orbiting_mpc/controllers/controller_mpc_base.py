@@ -393,6 +393,9 @@ class GenericMPC(ControllerBaseClass):
         id_e = int(round(t / self.dt)) + self.Nt + 1
         x_r = self.trajectory[:, id_s:id_e]
         u_r = self.nominal_input[:, id_s:id_e]
+
+        print(f"t: {t}, id_s: {id_s}, id_e: {id_e}")
+        print(f"x_r: {x_r[:,0].flatten()}")
         return x_r, u_r
 
     def handle_angle_wraparound(self, x0, x_r):
