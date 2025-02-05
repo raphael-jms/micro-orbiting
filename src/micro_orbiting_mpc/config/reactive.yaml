@@ -29,9 +29,10 @@
       spiraling:
         horizon: 10
         param_set: "P1"
-        failsafe_mode: "hold" # "hold" or "continue_trajectory"
+        # failsafe_mode: "hold" # "hold" or "continue_trajectory"
+        failsafe_mode: "continue_trajectory" # "hold" or "continue_trajectory"
         P1:
-          Q: [1, 1, 1, 1, 0]
+          Q: [1, 1, 1, 1, 2]
           R: [0.1, 0.1, 0.01]
           P_mult: 1
           # Attention: The following parameters are only updated if the terminal set is recalculated!

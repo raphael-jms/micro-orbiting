@@ -23,6 +23,17 @@ def calculate_cost_fcn(model, cost_handler, tuning, system_params):
     # Save the terminal cost function to the database
     cost_handler.set_cost_fcn(tcost, tset, model, tuning, system_params)
 
+def get_tuning_parameters(tuning_params):
+    if "tuning" in tuning_params.keys() and "param_set" in tuning_params.keys():
+        # File structure for single controller
+        return tuning_params["tuning"][tuning_params["param_set"]]
+    elif "tuning" in tuning_params.keys() and "spiraling" in tuning_params["tuning"].keys():
+        # File structure for reactive controller
+        tuning_params = tuning_params["tuning"]["spiraling"]
+        return tuning_params[tuning_params["param_set"]] 
+    else:
+        raise ValueError("I do not know this file structure") 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parameters for setting up the term cost database")
 
@@ -40,8 +51,8 @@ if __name__ == "__main__":
 
     # Ensure user wants to recalculate the cost functions
     if not(args.yes) and not query_yes_no("Creating new cost functions will delete the " + \
-            "existing ones and may take several hours. Continue? (Tip: Copy existing db as " + \
-            "described in README.md)"):
+            "existing ones and may take several hours. Continue? \n(Tip 1: Copy existing db as " + \
+            "described in README.md) \n(Tip 2: Skip this question with the --yes flag)\n"):
             exit()
 
     # Get parameters
@@ -78,7 +89,7 @@ if __name__ == "__main__":
         model = FreeFlyerDynamicsFull(tuning_params["time_step"], system_params)
         for act in tuning_params["actuator_failures"]:
             model.add_actuator_fault(act['act_ids'], act['intensity'])
-        calculate_cost_fcn(model, cost_handler, tuning_params["tuning"][tuning_params["param_set"]],
+        calculate_cost_fcn(model, cost_handler, get_tuning_parameters(tuning_params),
                            system_params)
 
         elapsed = timedelta(seconds=time.time() - start_t)
@@ -137,7 +148,7 @@ if __name__ == "__main__":
 
             for act in case:
                 model.add_actuator_fault(act['act_ids'], act['intensity'])
-            calculate_cost_fcn(model, cost_handler, tuning_params["tuning"][tuning_params["param_set"]],
+            calculate_cost_fcn(model, cost_handler, get_tuning_parameters(tuning_params),
                                system_params)
 
             print(frame_message(f"Finished case {current_case_number+1} of {len(failure_cases)}", indent=4, add_newline=False))
