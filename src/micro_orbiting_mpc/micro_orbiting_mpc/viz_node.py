@@ -38,6 +38,7 @@ class RealTimeVisualizer(Node):
         path_duration = 30.0  # seconds
         update_rate = 0.1    # seconds (20Hz)
         self.path_points = int(path_duration / update_rate)
+        self.disconnected_timeout = 5.0  # seconds
 
         # Initialize state variables
         self.position = np.zeros(2)  # x1, y1
@@ -47,6 +48,7 @@ class RealTimeVisualizer(Node):
         self.center_pos_full = np.zeros(5)  # x, y, vx, vy, omega
         self.resulting_force = np.zeros(3)
         self.desired_state = np.zeros(6)
+        self.last_update_time = None
 
         # Initialize path storage
         self.robot_path = deque(maxlen=self.path_points)
@@ -167,6 +169,7 @@ class RealTimeVisualizer(Node):
 
         # Create timer for visualization updates
         self.update_timer = self.create_timer(0.05, self.update_plot)  # 20Hz update rate
+        self.forget_timer = self.create_timer(1.0, self.forget_if_disconnected)
 
     def controller_callback(self, msg):
         self.position = np.array([msg.x1, msg.y1])
@@ -185,6 +188,8 @@ class RealTimeVisualizer(Node):
         self.robot_path.append(self.position)
         self.center_path.append(self.center_position)
         self.desired_state = np.array(msg.desired_state)
+
+        self.last_update_time = self.get_clock().now()
     
     def failed_forces_callback(self, msg):
         self.failed_actuator_forces = np.zeros(8)
@@ -277,6 +282,17 @@ class RealTimeVisualizer(Node):
                                         dx=dx, 
                                         dy=dy)
         return force_arrows
+
+    def forget_if_disconnected(self):
+        # clear the travelled path if the controller is disconnected
+        if self.last_update_time is not None:
+            time_diff = self.get_clock().now() - self.last_update_time
+            if time_diff.nanoseconds * 1e-9 > self.disconnected_timeout:
+                # Reset the past path
+                for _ in range(self.path_points):
+                    self.robot_path.append(np.zeros(2))
+                    self.center_path.append(np.zeros(2))
+                self.last_update_time = None
 
 def main(args=None):
     rclpy.init(args=args)

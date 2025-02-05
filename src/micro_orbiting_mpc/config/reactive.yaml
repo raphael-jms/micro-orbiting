@@ -2,25 +2,25 @@
   ros__parameters:
     mode: "reactive"
     time_step: 0.1
-    traj_shape: "hover"
-    # traj_shape: "circle_r_1.2_sPerFullCircle_30"
+    # traj_shape: "hover"
+    traj_shape: "circle_r_1.2_sPerFullCircle_30"
     traj_duration: 30
     actuator_failures: 
       - act_ids: [3,1]
-        intensity: 1
-        start_time: 5.2
+        intensity: 1.0
+        start_time: 10
       - act_ids: [4,1]
-        intensity: 1
-        start_time: 5.2
+        intensity: 1.0
+        start_time: 10
     tuning:
       nominal:
-        horizon: 30
+        horizon: 20
         param_set: "P1"
         P1: 
           Q: [10.0, 10.0, 10.0, 1.0, 1.0, 0.1]
           R: [1.0, 1.0, 1.0]
           R_full: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-          P_mult: 1.0  # P = P_mult * Q
+          P_mult: 10.0  # P = P_mult * Q
         P2: 
           Q: [5.0, 5.0, 10.0, 0.2, 0.2, 0.1]
           R: [1.0, 1.0, 1.0]
@@ -29,6 +29,7 @@
       spiraling:
         horizon: 10
         param_set: "P1"
+        failsafe_mode: "hold" # "hold" or "continue_trajectory"
         P1:
           Q: [1, 1, 1, 1, 0]
           R: [0.1, 0.1, 0.01]

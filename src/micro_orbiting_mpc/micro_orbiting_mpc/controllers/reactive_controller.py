@@ -1,5 +1,6 @@
 import threading
 import pprint
+import numpy as np
 
 from micro_orbiting_mpc.controllers.controller_mpc_base import GenericMPC
 from micro_orbiting_mpc.controllers.spiralMPC_eMPC.controller_empc import FancyMPC
@@ -29,6 +30,7 @@ class ReactiveController:
         self.trajectory = None
         self.traj_start_time = None # keep track of state of trajectory across multiple controllers
         self.actuator_failures = [] # of type FailedActuator
+        self.position = np.zeros(6)
 
         # handle actuator failures that are present at startup
         actuator_failures_at_start = []
@@ -84,7 +86,8 @@ class ReactiveController:
 
         with self.initialization_lock:
             self.controller = new_controller
-            self.assign_trajectory_to_controller(start_time=self._time_since_traj_start()) 
+            # self.assign_trajectory_to_controller(start_time=self._time_since_traj_start()) 
+            self.assign_trajectory_to_controller(start_time=0) 
 
     def _init_spiraling_MPC(self):
         tuning_param = self.params["tuning"]["spiraling"]
@@ -100,7 +103,13 @@ class ReactiveController:
 
         with self.initialization_lock:
             self.controller = new_controller
-            self.assign_trajectory_to_controller(start_time=self._time_since_traj_start()) 
+            match tuning_param["failsafe_mode"]:
+                case "continue_trajectory":
+                    self._ros_node.get_logger().info("Continuing trajectory after failsafe to spiraling MPC")
+                    self.assign_trajectory_to_controller(start_time=0) 
+                case "hold" | _ :
+                    self._ros_node.get_logger().info("Holding current position after failsafe to spiraling MPC")
+                    self.controller.load_trajectory(f"hover_{self.position[0]}_{self.position[1]}_{self.position[2]}", 100)
 
     def _init_nominal_MPC(self):
         tuning_param = self.params["tuning"]["nominal"]
@@ -109,8 +118,9 @@ class ReactiveController:
             'horizon': tuning_param["horizon"] if "horizon" in tuning_param else 10, # TODO better default
             "uub": [1] * self.model.m, # TODO
             "ulb": [0] * self.model.m,
-            "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
-                                                                    tuning_param[self.params["tuning"]["nominal"]["param_set"]]),
+            "terminal_constraint": None,
+            # "terminal_constraint": get_terminal_constraints_no_faults(self.model, 
+            #                                                         tuning_param[self.params["tuning"]["nominal"]["param_set"]]),
             'param_set': tuning_param["param_set"],
             'tuning': tuning_param
         }
@@ -119,7 +129,7 @@ class ReactiveController:
 
         with self.initialization_lock:
             self.controller = new_controller
-            self.assign_trajectory_to_controller(start_time=self._time_since_traj_start()) 
+            self.assign_trajectory_to_controller(start_time=0) 
 
     def add_actuator_failures(self, failures):
         # Add the faults to the model and failure list
@@ -172,27 +182,9 @@ class ReactiveController:
         self.controller.load_trajectory(action, duration, file_path)
         self.trajectory = self.controller.get_trajectory(start_time=0)
 
-    def get_trajectory(self):
-        raise NotImplementedError
+    def update_position(self, x0):
+        self.position = x0
 
     def __repr__(self):
         return f"ReactiveController using ({self.controller})"
 
-"""
-- [ ] Needs to copy values s.a. trajectory
-- [ ] What are the standard launch file arguments? 
-
-
-- Need to have 
-    - self.mode
-    - self.time_step
-    - traj_shape
-    - traj_duration
-    - actuator_failures
-- Need not to have
-    - horizon
-    - param_set
-    - solver_opts
-    - tuning
-
-"""

@@ -84,7 +84,8 @@ class GenericMPC(ControllerBaseClass):
             self.fig, self.axs_planned_traj = plt.subplots(1,1)
             self.fig_states, self.axs_planned_states = plt.subplots(6,1)
 
-    def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, slv_status):
+    def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, slv_status,
+                                       goal_state):
         """
         Publish the last controller values to the ROS topic.
         """
@@ -125,6 +126,8 @@ class GenericMPC(ControllerBaseClass):
         msg.solver_time = slv_time
         msg.control_cost = cost
         msg.solver_state = self.SOLVE_STATUS[slv_status]
+
+        msg.desired_state = goal_state.tolist()
 
         self.controller_stats_pub.publish(msg)
 
@@ -243,7 +246,9 @@ class GenericMPC(ControllerBaseClass):
             # Terminal cost
             obj += self.terminal_cost(x_t, x_r, self.P)
         elif terminal_constraint is None:
-            self.logger.info("No terminal constraint set.")
+            # Terminal cost
+            obj += self.terminal_cost(x_t, x_r, self.P)
+            self.logger.info("No terminal constraint set. Terminal cost is V_t(e) = e^T P_mult*Q e")
         else:
             raise ValueError(f"Invalid terminal constraint: {terminal_constraint}")
 
@@ -342,7 +347,7 @@ class GenericMPC(ControllerBaseClass):
         # Publish the controller values to ROS
         self.publish_last_controller_values(t, x0, x, u_res, self.u_sp[0:self.Nu], u[0], 
                                             x0[0:self.Nopt].flatten() - self.x_sp[0:self.Nopt].flatten(), 
-                                            slv_time, cost, slv_status)
+                                            slv_time, cost, slv_status, self.x_sp[0:self.Nopt].flatten())
         return u_res
 
     def solve_mpc(self, x0):

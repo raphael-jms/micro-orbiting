@@ -4,6 +4,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSHistoryPolicy
 
 from px4_msgs.msg import ActuatorMotors
+from px4_msgs.msg import VehicleStatus
 
 from micro_orbiting_mpc.models.ff_dynamics import FreeFlyerDynamicsFull
 from micro_orbiting_mpc.util.utils import read_ros_parameter_file, ensure_proper_fault_information
@@ -59,13 +60,21 @@ class FaultInjectionNode(Node):
             self.robot_parameters[param] = self.get_parameter(param).value
         self.model = FreeFlyerDynamicsFull(self.time_step, self.robot_parameters)
 
+        # Check when the controller starts the trajectory to know when the failures with 
+        # start_time != 0 are activated
+        self.was_last_offboard = False # Only in offboard control mode: vehicle controlled by MPC
+        self.controller_start_time = None
+
         # Read initial faults from config
         self.declare_parameter('config_file', 'nominal_mpc.yaml')
         config_file = self.get_parameter('config_file').value
-        self.actuator_failures = read_ros_parameter_file(config_file, 'actuator_failures')
+        self.future_actuator_failures = read_ros_parameter_file(config_file, 'actuator_failures')
+        if self.future_actuator_failures is None:
+            self.future_actuator_failures = []
+        self.actuator_failures = []
         
         # Apply initial faults
-        self.apply_initial_faults()
+        self.apply_faults(0.0)
 
         # Create subscribers, publishers and services
         self.control_signal_sub = self.create_subscription(
@@ -81,6 +90,12 @@ class FaultInjectionNode(Node):
             self.add_failure_callback,
             qos_profile
         )
+
+        self.status_sub = self.create_subscription(
+            VehicleStatus,
+            '/fmu/out/vehicle_status',
+            self.vehicle_status_callback,
+            qos_profile)
 
         self.full_control_publisher = self.create_publisher(
             ActuatorMotors,
@@ -99,7 +114,8 @@ class FaultInjectionNode(Node):
             '/micro_orbiting/actuator_failure_internal'
         )
 
-        self.timer = self.create_timer(1.0, self.publish_actuator_faults_callback)
+        self.timer_publish_faults = self.create_timer(1.0, self.publish_actuator_faults_callback)
+        self.timer_preprogrammed_faults = self.create_timer(0.1, lambda: self.apply_faults(self.time_since_traj_start()))
 
     def publish_actuator_faults_callback(self):
         """Publish the actuator faults."""
@@ -113,13 +129,20 @@ class FaultInjectionNode(Node):
             msg.failed_actuators.append(act)
         self.fault_publisher.publish(msg)
 
-    def apply_initial_faults(self):
-        """Apply faults from the config file."""
-        if self.actuator_failures is None:
-            return
+    def apply_faults(self, time):
+        """Apply faults that are active at the given time."""
+        additional_faults = FailedActuators()
+        for fault in self.future_actuator_failures[:]:  # iterate over a copy
+            if fault["start_time"] <= time:
+                new_failure = FailedActuator()
+                new_failure.pos1 = fault["act_ids"][0]
+                new_failure.pos2 = fault["act_ids"][1]
+                new_failure.intensity = fault["intensity"]
+                additional_faults.failed_actuators.append(new_failure)
+                self.future_actuator_failures.remove(fault)
 
-        for fault in self.actuator_failures:
-            self.model.add_actuator_fault(fault["act_ids"], fault["intensity"])
+        if additional_faults.failed_actuators != []:
+            self.add_failure_callback(additional_faults)
 
     def control_signal_callback(self, msg: ActuatorMotors):
         """Handle incoming control signals and pass on with added faults/failures."""
@@ -149,6 +172,7 @@ class FaultInjectionNode(Node):
 
                 # add to model
                 self.model.add_actuator_fault([failure.pos1, failure.pos2], failure.intensity)
+                self.actuator_failures.append(failure)
             
             srv = SetActuatorFailure.Request()
             srv.failed_actuators = msg.failed_actuators
@@ -167,6 +191,28 @@ class FaultInjectionNode(Node):
         except Exception as e:
             self.get_logger().error(f"Failed to add fault: {e}")
         
+    def vehicle_status_callback(self, msg):
+        """
+        Read the vehicle status to know when the controller starts following the trajectory.
+        """
+        # arming state 1: disarmed, 2: armed
+        # nav_state 14: offboard
+        is_current_offboard = (msg.arming_state == 2 and msg.nav_state == 14 and msg.nav_state_user_intention == 14)
+        if not(self.was_last_offboard) and is_current_offboard:
+            # Was set to start the trajectory: Reset the timer
+            self.controller_start_time = self.get_clock().now()
+            self.get_logger().info(f"I reset the timer: {msg}")
+        self.was_last_offboard = is_current_offboard
+
+    def time_since_traj_start(self):
+        if not self.was_last_offboard:
+            return 0.0
+
+        if self.controller_start_time is None:
+            self.controller_start_time = self.get_clock().now()
+        
+        return (self.get_clock().now() - self.controller_start_time).nanoseconds * 1e-9
+
 def main(args=None):
     rclpy.init(args=args)
     node = FaultInjectionNode()

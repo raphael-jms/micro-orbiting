@@ -180,6 +180,7 @@ class SpacecraftMPCNode(Node):
         self.actuator_failures = read_ros_parameter_file(config_file, 'actuator_failures')
 
         self.controller_start_time = None
+        self.was_last_offboard = False # Only in offboard control mode: vehicle controlled by MPC
 
         # create publishers
         self.publisher_offboard_mode = self.create_publisher(
@@ -404,6 +405,9 @@ class SpacecraftMPCNode(Node):
 
         self.orientation_z = -msg.heading
 
+        if self.mode == 'reactive':
+            self.controller.update_position(self.vehicle_local_position)
+
     def vehicle_angular_velocity_callback(self, msg):
         """
         Callback for angular velocity
@@ -451,13 +455,27 @@ class SpacecraftMPCNode(Node):
         # print(f"NAV_STATUS: {msg.nav_state} - offboard status: {VehicleStatus.NAVIGATION_STATE_OFFBOARD}")
         self.nav_state = msg.nav_state
 
+        # arming state 1: disarmed, 2: armed
+        # nav_state 14: offboard
+        is_current_offboard = (msg.arming_state == 2 and msg.nav_state == 14 and msg.nav_state_user_intention == 14)
+        if not(self.was_last_offboard) and is_current_offboard:
+            # Was set to start the trajectory: Reset the timer
+            self.controller_start_time = self.get_clock().now()
+
+        self.was_last_offboard = is_current_offboard
+
     def trajectory_callback(self, msg):
         try:
+            # Load trajectory
             self.controller.load_trajectory(
                 action=msg.action,
                 duration=msg.duration,
                 file_path=msg.file_path if msg.file_path else None
             )
+
+            # Reset the timer: New trajectory will start at traj time 0s
+            self.controller_start_time = self.get_clock().now()
+
             self.get_logger().info(f'Loaded new trajectory: {msg.action}')
         except ValueError as e:
             self.get_logger().error(f'Failed to load trajectory: {str(e)}')
@@ -538,6 +556,9 @@ class SpacecraftMPCNode(Node):
         self.publisher_direct_actuator.publish(actuator_outputs_msg)
 
     def time_since_traj_start(self):
+        if not self.was_last_offboard:
+            return 0.0
+
         if self.controller_start_time is None:
             self.controller_start_time = self.get_clock().now()
         
