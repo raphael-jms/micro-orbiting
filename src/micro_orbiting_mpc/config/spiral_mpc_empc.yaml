@@ -10,7 +10,9 @@
     # Trajectory params
     # traj_shape: "hover"
     # traj_shape: "generate_circle"
-    traj_shape: "circle_r_1.2_sPerFullCircle_30"
+    # traj_shape: "circle_r_1.2_sPerFullCircle_30"
+    # traj_shape: "hover_2.75_0.2_0"
+    traj_shape: "hover_1.75_0.2_0"
     # traj_shape: "generate_sin"
     # traj_shape: "load=traj_01.yaml"
     traj_duration: 10
@@ -36,13 +38,13 @@
         k_omega: 0.1
         max_acceleration: 0.0    
     actuator_failures: 
-      # # original
-      # - act_ids: [3,1]
-      #   intensity: 1
-      #   start_time: 0
-      # - act_ids: [4,1]
-      #   intensity: 1
-      #   start_time: 0
+      # original
+      - act_ids: [3,1]
+        intensity: 1.0
+        start_time: 0
+      - act_ids: [4,1]
+        intensity: 1.0
+        start_time: 0
     
       # # opposite
       # - act_ids: [3,2]
@@ -59,12 +61,12 @@
       #   intensity: 1
       #   start_time: 0
 
-      - act_ids: [4, 1]
-        intensity: 1
-        start_time: 0
-      - act_ids: [2, 2]
-        intensity: 1
-        start_time: 0
+      # - act_ids: [4, 1]
+      #   intensity: 1.0
+      #   start_time: 0
+      # - act_ids: [2, 2]
+      #   intensity: 1.0
+      #   start_time: 0
 
       # - act_ids: [2, 2]
       #   intensity: 1

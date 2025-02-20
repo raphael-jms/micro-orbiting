@@ -107,6 +107,9 @@ class ReactiveController:
                 case "continue_trajectory":
                     self._ros_node.get_logger().info("Continuing trajectory after failsafe to spiraling MPC")
                     self.assign_trajectory_to_controller(start_time=0) 
+                case "hold_center":
+                    self._ros_node.get_logger().info("Holding current position after failsafe to spiraling MPC")
+                    self.controller.load_trajectory(f"hover_2_0_0", 100)
                 case "hold" | _ :
                     self._ros_node.get_logger().info("Holding current position after failsafe to spiraling MPC")
                     self.controller.load_trajectory(f"hover_{self.position[0]}_{self.position[1]}_{self.position[2]}", 100)

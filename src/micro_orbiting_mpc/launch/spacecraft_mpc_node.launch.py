@@ -32,6 +32,27 @@ def generate_launch_description():
         LaunchConfiguration('robot_parameters')
     ])
 
+    topic_remapping_robot = [
+        ('/fmu/out/vehicle_status','/crackle/fmu/out/vehicle_status'),
+        ('/fmu/out/vehicle_attitude','/crackle/fmu/out/vehicle_attitude'),
+        ('/fmu/out/vehicle_angular_velocity','/crackle/fmu/out/vehicle_angular_velocity'),
+        ('/fmu/out/vehicle_local_position','/crackle/fmu/out/vehicle_local_position'),
+        ('/fmu/in/offboard_control_mode','/crackle/fmu/in/offboard_control_mode'),
+        ('/fmu/in/actuator_motors','/crackle/fmu/in/actuator_motors'),
+    ]
+
+    topic_remapping_sim = [
+        ('/fmu/out/vehicle_status','/fmu/out/vehicle_status'),
+        ('/fmu/out/vehicle_attitude','/fmu/out/vehicle_attitude'),
+        ('/fmu/out/vehicle_angular_velocity','/fmu/out/vehicle_angular_velocity'),
+        ('/fmu/out/vehicle_local_position','/fmu/out/vehicle_local_position'),
+        ('/fmu/in/offboard_control_mode','/fmu/in/offboard_control_mode'),
+        ('/fmu/in/actuator_motors','/fmu/in/actuator_motors'),
+    ]
+
+    # chosen_topic_remapping = topic_remapping_sim
+    chosen_topic_remapping = topic_remapping_robot
+
     return LaunchDescription([
         config_file_arg,
         robot_parameters_arg,
@@ -48,6 +69,7 @@ def generate_launch_description():
             output='screen',
             prefix='python3 -u',
             additional_env={'PYTHONUNBUFFERED': '1'},
+            remappings=chosen_topic_remapping,
         ),
        
         Node(
@@ -70,5 +92,8 @@ def generate_launch_description():
             output='screen',
             prefix='python3 -u',
             additional_env={'PYTHONUNBUFFERED': '1'},
+            remappings=chosen_topic_remapping,
         ),
     ])
+
+

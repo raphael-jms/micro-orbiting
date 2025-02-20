@@ -144,7 +144,8 @@ class ControllerBaseClass:
                         radius * omega * np.cos(omega * t),
                         np.zeros_like(t)
                     ))
-                    x_ref += np.array([[-radius], [0], [0], [0], [0], [0]])
+                    # x_ref += np.array([[-radius], [0], [0], [0], [0], [0]])
+                    x_ref += np.array([[1.75], [0], [0], [0], [0], [0]])
                 case _:
                     raise ValueError("Invalid form. Use 'sin' or 'line'.")
             return x_ref
@@ -178,7 +179,7 @@ class ControllerBaseClass:
                 raise ValueError(f"Invalid parameters for action '{action}'. Use 'circle_r_<radius>_sPerFullCircle<speed>'")
             radius = float(params[1])
             speed = float(params[3])
-            t = generate_trajectory(duration, form='circle', radius=radius, speed=speed)
+            t = generate_trajectory(duration, form='circle', radius=radius, sPerFullCircle=speed)
         elif action == "load":
             fpath = file_path if file_path is not None else './controllers/trajectories/traj_01.yaml'
             t = load_trajectory_from_file(fpath) 

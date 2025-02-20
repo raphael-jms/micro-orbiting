@@ -1,0 +1,244 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+ <tabbed_widget parent="main_window" name="Main Window">
+  <Tab containers="1" tab_name="States">
+   <Container>
+    <DockSplitter count="1" sizes="1" orientation="-">
+     <DockSplitter count="2" sizes="0.5;0.5" orientation="|">
+      <DockSplitter count="5" sizes="0.2;0.2;0.2;0.2;0.2" orientation="-">
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="1.832676" right="36.700008" bottom="0.090352" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/x1" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/center_state_x" color="#1f77b4"/>
+         <curve name="/px4_mpc/controller_values/center_error_x" color="#ff0000"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="-0.188124" right="36.700008" bottom="-0.498707" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/y1" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/center_state_y" color="#1f77b4"/>
+         <curve name="/px4_mpc/controller_values/center_error_y" color="#ff0000"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="0.001978" right="36.700008" bottom="-0.001142" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/x2" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/center_state_vx" color="#1f77b4"/>
+         <curve name="/px4_mpc/controller_values/center_error_vx" color="#ff0000"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="0.001060" right="36.700008" bottom="-0.003184" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/y2" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/center_state_vy" color="#1f77b4"/>
+         <curve name="/px4_mpc/controller_values/center_error_vy" color="#ff0000"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="0.013341" right="36.700008" bottom="-0.513583" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/omega" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/center_state_omega" color="#1f77b4"/>
+         <curve name="/px4_mpc/controller_values/center_error_omega" color="#ff0000"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter count="3" sizes="0.332756;0.334489;0.332756" orientation="-">
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="2.349881" right="36.700008" bottom="-0.057314" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/u[0]" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/u_control[0]" color="#504cf1"/>
+         <curve name="/px4_mpc/controller_values/u_nom[0]" color="#828282"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="0.062671" right="36.700008" bottom="-2.569512" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/u[1]" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/u_control[1]" color="#504cf1"/>
+         <curve name="/px4_mpc/controller_values/u_nom[1]" color="#828282"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+         <range top="0.104772" right="36.700008" bottom="-0.002555" left="6.799425"/>
+         <limitY/>
+         <curve name="/px4_mpc/controller_values/u[2]" color="#000000"/>
+         <curve name="/px4_mpc/controller_values/u_control[2]" color="#504cf1"/>
+         <curve name="/px4_mpc/controller_values/u_nom[2]" color="#828282"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+     </DockSplitter>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Positions">
+   <Container>
+    <DockSplitter count="1" sizes="1" orientation="-">
+     <DockArea name="...">
+      <plot flip_x="false" mode="XYPlot" flip_y="false" style="Lines">
+       <range top="-0.188124" right="1.899345" bottom="-0.498707" left="1.523682"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_state_[x;y]" color="#1ac938" curve_y="/px4_mpc/controller_values/center_state_y" curve_x="/px4_mpc/controller_values/center_state_x"/>
+       <curve name="/px4_mpc/controller_values/[x1;y1]" color="#ff7f0e" curve_y="/px4_mpc/controller_values/y1" curve_x="/px4_mpc/controller_values/x1"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Inputs">
+   <Container>
+    <DockSplitter count="4" sizes="0.25;0.25;0.25;0.25" orientation="-">
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="StepsInv">
+       <range top="1.435000" right="36.700008" bottom="-0.035000" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/u_full[0]" color="#1ac938"/>
+       <curve name="/px4_mpc/controller_values/u_full[1]" color="#ff7f0e">
+        <transform name="Scale/Offset" alias="/px4_mpc/controller_values/u_full[1][Scale/Offset]">
+         <options value_scale="-1.0" time_offset="0.0" value_offset="0.0"/>
+        </transform>
+       </curve>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="StepsInv">
+       <range top="0.914880" right="36.700008" bottom="-0.022314" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/u_full[2]" color="#f14cc1"/>
+       <curve name="/px4_mpc/controller_values/u_full[3]" color="#9467bd">
+        <transform name="Scale/Offset" alias="/px4_mpc/controller_values/u_full[3][Scale/Offset]">
+         <options value_scale="-1.0" time_offset="0.0" value_offset="0.0"/>
+        </transform>
+       </curve>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="StepsInv">
+       <range top="0.027672" right="36.700008" bottom="-1.134513" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/u_full[4]" color="#17becf"/>
+       <curve name="/px4_mpc/controller_values/u_full[5]" color="#bcbd22">
+        <transform name="Scale/Offset" alias="/px4_mpc/controller_values/u_full[5][Scale/Offset]">
+         <options value_scale="-1.0" time_offset="0.0" value_offset="0.0"/>
+        </transform>
+       </curve>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="StepsInv">
+       <range top="0.035000" right="36.700008" bottom="-1.435000" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/u_full[6]" color="#1f77b4"/>
+       <curve name="/px4_mpc/controller_values/u_full[7]" color="#d62728">
+        <transform name="Scale/Offset" alias="/px4_mpc/controller_values/u_full[7][Scale/Offset]">
+         <options value_scale="-1.0" time_offset="0.0" value_offset="0.0"/>
+        </transform>
+       </curve>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Errors">
+   <Container>
+    <DockSplitter count="5" sizes="0.2;0.2;0.2;0.2;0.2" orientation="-">
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+       <range top="0.133948" right="36.700008" bottom="0.131784" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_error_x" color="#9467bd"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+       <range top="-0.489052" right="36.700008" bottom="-0.491367" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_error_y" color="#17becf"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+       <range top="0.001977" right="36.700008" bottom="-0.001094" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_error_vx" color="#ff7f0e"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+       <range top="0.001059" right="36.700008" bottom="-0.003184" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_error_vy" color="#f14cc1"/>
+      </plot>
+     </DockArea>
+     <DockArea name="...">
+      <plot flip_x="false" mode="TimeSeries" flip_y="false" style="Lines">
+       <range top="-0.499159" right="36.700008" bottom="-0.501083" left="6.799425"/>
+       <limitY/>
+       <curve name="/px4_mpc/controller_values/center_error_omega" color="#1ac938"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="3"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <!-- - - - - - - - - - - - - - - -->
+ <Plugins>
+  <plugin ID="DataLoad CSV">
+   <parameters delimiter="0" time_axis=""/>
+  </plugin>
+  <plugin ID="DataLoad MCAP"/>
+  <plugin ID="DataLoad ROS2 bags">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value=""/>
+  </plugin>
+  <plugin ID="DataLoad ULog"/>
+  <plugin ID="ROS2 Topic Subscriber">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value="/px4_mpc/controller_values"/>
+  </plugin>
+  <plugin ID="UDP Server"/>
+  <plugin ID="WebSocket Server"/>
+  <plugin ID="ZMQ Subscriber"/>
+  <plugin ID="Fast Fourier Transform"/>
+  <plugin ID="Quaternion to RPY"/>
+  <plugin ID="Reactive Script Editor">
+   <library code="--[[ Helper function to create a series from arrays&#xa;&#xa; new_series: a series previously created with ScatterXY.new(name)&#xa; prefix:     prefix of the timeseries, before the index of the array&#xa; suffix_X:   suffix to complete the name of the series containing the X value. If [nil], use the index of the array.&#xa; suffix_Y:   suffix to complete the name of the series containing the Y value&#xa; timestamp:   usually the tracker_time variable&#xa;              &#xa; Example:&#xa; &#xa; Assuming we have multiple series in the form:&#xa; &#xa;   /trajectory/node.{X}/position/x&#xa;   /trajectory/node.{X}/position/y&#xa;   &#xa; where {N} is the index of the array (integer). We can create a reactive series from the array with:&#xa; &#xa;   new_series = ScatterXY.new(&quot;my_trajectory&quot;) &#xa;   CreateSeriesFromArray( new_series, &quot;/trajectory/node&quot;, &quot;position/x&quot;, &quot;position/y&quot;, tracker_time );&#xa;--]]&#xa;&#xa;function CreateSeriesFromArray( new_series, prefix, suffix_X, suffix_Y, timestamp )&#xa;  &#xa;  --- clear previous values&#xa;  new_series:clear()&#xa;  &#xa;  --- Append points to new_series&#xa;  index = 0&#xa;  while(true) do&#xa;&#xa;    x = index;&#xa;    -- if not nil, get the X coordinate from a series&#xa;    if suffix_X ~= nil then &#xa;      series_x = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_X) )&#xa;      if series_x == nil then break end&#xa;      x = series_x:atTime(timestamp)&#x9; &#xa;    end&#xa;    &#xa;    series_y = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_Y) )&#xa;    if series_y == nil then break end &#xa;    y = series_y:atTime(timestamp)&#xa;    &#xa;    new_series:push_back(x,y)&#xa;    index = index+1&#xa;  end&#xa;end&#xa;&#xa;--[[ Similar to the built-in function GetSeriesNames(), but select only the names with a give prefix. --]]&#xa;&#xa;function GetSeriesNamesByPrefix(prefix)&#xa;  -- GetSeriesNames(9 is a built-in function&#xa;  all_names = GetSeriesNames()&#xa;  filtered_names = {}&#xa;  for i, name in ipairs(all_names)  do&#xa;    -- check the prefix&#xa;    if name:find(prefix, 1, #prefix) then&#xa;      table.insert(filtered_names, name);&#xa;    end&#xa;  end&#xa;  return filtered_names&#xa;end&#xa;&#xa;--[[ Modify an existing series, applying offsets to all their X and Y values&#xa;&#xa; series: an existing timeseries, obtained with TimeseriesView.find(name)&#xa; delta_x: offset to apply to each x value&#xa; delta_y: offset to apply to each y value &#xa;  &#xa;--]]&#xa;&#xa;function ApplyOffsetInPlace(series, delta_x, delta_y)&#xa;  -- use C++ indeces, not Lua indeces&#xa;  for index=0, series:size()-1 do&#xa;    x,y = series:at(index)&#xa;    series:set(index, x + delta_x, y + delta_y)&#xa;  end&#xa;end&#xa;"/>
+   <scripts/>
+  </plugin>
+  <plugin ID="CSV Exporter"/>
+  <plugin ID="ROS2 Topic Re-Publisher"/>
+ </Plugins>
+ <!-- - - - - - - - - - - - - - - -->
+ <previouslyLoaded_Datafiles/>
+ <previouslyLoaded_Streamer name="ROS2 Topic Subscriber"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <customMathEquations/>
+ <snippets/>
+ <!-- - - - - - - - - - - - - - - -->
+</root>
+
