@@ -1,6 +1,6 @@
 # Failsafe control of space robotics
 
-This repo provides a ROS2 implementation of controllers for failsafe control of spacecraft. The controllers are based on the Master's thesis "Failsafe Control for Space Robotic Systems - Model Predictive Control under Actuator Failures"[XXXlink].
+This repo provides a ROS2 implementation of controllers for failsafe control of spacecraft. The controllers are based on the Master's thesis "Failsafe Control for Space Robotic Systems - Model Predictive Control under Actuator Failures" ([see here](https://raphaelstockner.com/assets/Failsafe%20Control%20for%20Space%20Robotic%20Systems%20-%20Model%20Predictive%20Control%20under%20Actuator%20Failures.pdf "Download PDF")).
 
 The repo provides
 - MPC controller nodes 
@@ -19,15 +19,13 @@ Implementation on a physical system, made at the KTH Space Robotics Lab (see mor
 
 Example: Failure of 3 thrusters
 
+<a href="http://www.youtube.com/watch?v=your_video_id">
+  <img src="http://img.youtube.com/vi/your_video_id/0.jpg" alt="Video thumbnail">
+</a>
+
 [![Video of a successful recovery after thruster failure](https://raphaelstockner.com/assets/failsafe_robotics.mp4)](https://raphaelstockner.com/assets/failsafe_robotics.mp4)
 
 ## Cite
 
 Stöckner, R. (2024). _Failsafe Control for Space Robotic Systems - Model Predictive Control under Actuator Failures_ [Master's thesis, Kungliga Tekniska Högskolan]
-
-
-
-
-
-The code is stable, but the repo is not yet completely cleaned up, this will happen during the next weeks.
 

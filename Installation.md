@@ -65,10 +65,13 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
                 Only use if faults should be present at start
 
 # ToDos
-- [ ] implement reactive mode
-    - [ ] Write reactive class
-    - [ ] implement into spacecraft_mpc_node
-    - [ ] Write code o calculate terminal cost for all cases
+
+No worries - the code is stable, but the repo is not yet completely cleaned up, which will happen during the next weeks.
+
+- [x] implement reactive mode
+    - [x] Write reactive class
+    - [x] implement into spacecraft_mpc_node
+    - [x] Write code o calculate terminal cost for all cases
 - [ ] Remove the parameter handling again?
 
 
@@ -99,7 +102,7 @@ from `~/micro-orbiting/src/micro_orbiting_mpc`. The resulting database is saved 
 
 **Next steps**
 - [ ] Not sure when: Add new arena to Gazebo simulation?
-- [ ] Implement reactive mode
+- [x] Implement reactive mode
         → should probably be part of the controller classes?
             → from the idea, it does not belong to ROS
             → Not sure about the models etc.
