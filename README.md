@@ -15,15 +15,11 @@ The code can be tested in a hardware-in-the-loop simulation using [PX4/Gazebo](h
 
 ## Results
 
-Implementation on a physical system, made at the KTH Space Robotics Lab (see more about this [here](https://discower.io/ "Discower project"))
+The implementation was on a physical system at the KTH Space Robotics Lab (learn more about this [here](https://discower.io/ "Discower project"))
 
-Example: Failure of 3 thrusters
+Example: Recovery after the failure of 3 thrusters
 
-<a href="http://www.youtube.com/watch?v=your_video_id">
-  <img src="http://img.youtube.com/vi/your_video_id/0.jpg" alt="Video thumbnail">
-</a>
-
-[![Video of a successful recovery after thruster failure](https://raphaelstockner.com/assets/failsafe_robotics.mp4)](https://raphaelstockner.com/assets/failsafe_robotics.mp4)
+https://github.com/user-attachments/assets/1233ae1e-a9e8-4787-b77b-609ad5c37aaf
 
 ## Cite
 
