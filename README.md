@@ -1,6 +1,6 @@
 # Failsafe control of space robotics
 
-This repo provides a ROS2 implementation of controllers for failsafe control of spacecraft. The controllers are based on the Master's thesis "Failsafe Control for Space Robotic Systems - Model Predictive Control under Actuator Failures" ([see here](https://raphaelstockner.com/assets/Failsafe%20Control%20for%20Space%20Robotic%20Systems%20-%20Model%20Predictive%20Control%20under%20Actuator%20Failures.pdf "Download PDF")).
+This repo provides a ROS2 implementation of controllers for failsafe control of spacecraft. The controllers are based on the Master's thesis "Failsafe Control for Space Robotic Systems - Model Predictive Control under Actuator Failures" ([read here](https://raphaelstockner.com/assets/Failsafe%20Control%20for%20Space%20Robotic%20Systems%20-%20Model%20Predictive%20Control%20under%20Actuator%20Failures.pdf "Download PDF")).
 
 The repo provides
 - MPC controller nodes 
@@ -11,7 +11,7 @@ The repo provides
 - Real-time visualization of the planned path
 - Presets for [PlotJuggler](https://github.com/facontidavide/PlotJuggler) for visualization of other trajectories and data 
 
-The code can be tested in a hardware-in-the-loop simulation using [PX4/Gazebo](https://github.com/DISCOWER/PX4-Space-Systems). Installation instructions are provided [here](installation.md).
+The code can be tested in a hardware-in-the-loop simulation using [PX4/Gazebo](https://github.com/DISCOWER/PX4-Space-Systems). Installation instructions are provided [here](Installation.md).
 
 ## Results
 
