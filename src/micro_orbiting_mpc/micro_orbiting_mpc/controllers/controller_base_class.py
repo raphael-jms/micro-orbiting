@@ -6,6 +6,7 @@ from ament_index_python.packages import get_package_share_directory
 import os
 
 from micro_orbiting_mpc.models.ff_input_bounds import InputBounds, InputHandlerImproved
+from micro_orbiting_mpc.util.utils import Rot3
 
 class ControllerBaseClass:
     def __init__(self, ros_node):
@@ -144,8 +145,19 @@ class ControllerBaseClass:
                         radius * omega * np.cos(omega * t),
                         np.zeros_like(t)
                     ))
+
+                    # turn the circle by 90°
+                    R = Rot3(np.pi/2)
+                    for i in range(x_ref.shape[1]):
+                        x_ref[:3, i] = R @ x_ref[:3, i]
+                        x_ref[3:, i] = R @ x_ref[3:, i]
+
                     # x_ref += np.array([[-radius], [0], [0], [0], [0], [0]])
                     x_ref += np.array([[1.75], [0], [0], [0], [0], [0]])
+                    # import matplotlib.pyplot as plt
+                    # plt.plot(x_ref[0], x_ref[1])
+                    # plt.show()
+                    # exit()
                 case _:
                     raise ValueError("Invalid form. Use 'sin' or 'line'.")
             return x_ref

@@ -311,6 +311,12 @@ class FancyMPC(GenericMPC):
         necessary_force = np.vstack((secondDer[0:2, :] * self.mass, np.zeros_like(secondDer[0, :])))
         # necessary_force = -np.vstack((secondDer[0:2, :] * self.mass, np.zeros_like(secondDer[0, :])))
         self.nominal_input = necessary_force
+
+        # import matplotlib.pyplot as plt
+        # fig, ax = plt.subplots(5, 1)
+        # for i in range(5):
+        #     ax[i].plot(self.trajectory[i, :])
+        # plt.show()
     
     def publish_last_controller_values(self, t, x0, x_plan, u, u_nom, u_contr, e, slv_time, cost, 
                                        slv_status, center, center_error, u_phys, goal_state):

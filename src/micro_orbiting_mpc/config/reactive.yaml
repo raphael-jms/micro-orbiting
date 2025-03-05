@@ -5,7 +5,8 @@
     # traj_shape: "hover"
     # traj_shape: "hover_1.5_0_0"
     # traj_shape: "circle_r_1.0_sPerFullCircle_40"
-    traj_shape: "circle_r_0.75_sPerFullCircle_40"
+    # traj_shape: "circle_r_0.75_sPerFullCircle_40"
+    traj_shape: "circle_r_0.65_sPerFullCircle_40"
     traj_duration: 30
     actuator_failures: 
       # # Case 1
@@ -50,8 +51,8 @@
         horizon: 15
         param_set: "P1"
         # failsafe_mode: "hold" # "hold" or "continue_trajectory"
-        failsafe_mode: "hold_center" # "hold" or "continue_trajectory"
-        # failsafe_mode: "continue_trajectory" # "hold" or "continue_trajectory"
+        # failsafe_mode: "hold_center" # "hold" or "continue_trajectory"
+        failsafe_mode: "continue_trajectory" # "hold" or "continue_trajectory"
         P1:
           Q: [1, 1, 1, 1, 2]
           R: [0.1, 0.1, 0.01]
